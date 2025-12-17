@@ -179,6 +179,10 @@ let isInSimConnected = false;
 let lastNowPlayingInfo = { artist: "", song: "", fullTitle: "" }; 
 let isOverlayVisible = false;
 let currentLang = 'en';
+let overlayTickerTimer = null;
+let overlayTickerIndex = 0;
+let overlayArtistParts = [];
+let overlaySongParts = [];
 
 let radioConfig = { favorites: [], recent: [], lang: 'en' };
 
@@ -472,26 +476,74 @@ function tryConnectIpc(attempts = 0) {
     }, 300);
 }
 
+// === POMOCNÁ FUNKCE PRO PORCOVÁNÍ TEXTU (TICKER) ===
+// Funkce je definována níže u metadata logiky
+
+// === HELPERS ===
+function stripColors(text) {
+    if (!text) return "";
+    return text.replace(/\^[0-9a-zA-Z]/g, '');
+}
+
+function updateOverlayText() {
+    const L = 60; const T = 160;
+    
+    // Zobraz aktuální část artist
+    const artistPart = overlayArtistParts[overlayTickerIndex % overlayArtistParts.length] || "";
+    sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, 80, 5, `^2${artistPart}`, ButtonStyle.ISB_DARK);
+    
+    // Zobraz aktuální část song
+    const songPart = overlaySongParts[overlayTickerIndex % overlaySongParts.length] || "";
+    sendBtn(MY_UCID, OVERLAY_SONG, L, T+9, 80, 5, `^7${songPart}`, ButtonStyle.ISB_DARK);
+}
+
 function updateMetadata(raw, shouldBroadcast = false) {
     if (!raw || raw.includes('Now Playing')) return;
     const hasChanged = currentMetadata !== raw;
     currentMetadata = raw;
-    currentDisplayParts = raw.includes(" - ") ? raw.split(" - ") : [raw];
-    let artist = "Radio", song = raw;
+    
+    // --- TICKER LOGIC ---
+    let cleanRaw = stripColors(raw);
+    let parts = [];
+
+    // Pokud obsahuje pomlčku, rozdělíme na Interpreta a Název
+    if (cleanRaw.includes(" - ")) {
+        const splitArr = cleanRaw.split(" - ");
+        const artist = splitArr[0];
+        const song = splitArr.slice(1).join(" - ");
+
+        // Naporcujeme obě části zvlášť po 20 znacích
+        const artistChunks = createTickerParts(artist, 20);
+        const songChunks = createTickerParts(song, 20);
+
+        // Spojíme do jednoho cyklu
+        parts = [...artistChunks, ...songChunks];
+    } else {
+        // Jinak naporcujeme celý text
+        parts = createTickerParts(cleanRaw, 20);
+    }
+
+    currentDisplayParts = parts;
+
+    // Pro overlay (velké okno) uložíme artist a song zvlášť
+    let artistOverlay = "Radio", songOverlay = raw;
     if (raw.includes(" - ")) {
         const parts = raw.split(" - ");
-        artist = parts[0];
-        song = parts.slice(1).join(" - ");
+        artistOverlay = parts[0];
+        songOverlay = parts.slice(1).join(" - ");
     }
-    lastNowPlayingInfo = { artist, song, fullTitle: raw };
+    lastNowPlayingInfo = { artist: artistOverlay, song: songOverlay, fullTitle: raw };
 
+    // Reset a start timeru
     if (tickerTimer) clearInterval(tickerTimer);
     tickerIndex = 0;
     updateStatusButtons();
+    
+    // Interval 3 sekundy na každou část textu
     tickerTimer = setInterval(() => {
         tickerIndex = (tickerIndex + 1) % currentDisplayParts.length;
         updateStatusButtons();
-    }, 5000);
+    }, 3000);
     
     if (hasChanged && shouldBroadcast) {
         broadcastRadioStatus(currentStation, 'metadata', { fullTitle: raw });
@@ -499,30 +551,77 @@ function updateMetadata(raw, shouldBroadcast = false) {
     }
 }
 
+function createTickerParts(text, maxLength) {
+    if (!text || text.length <= maxLength) return [text || ""];
+    const parts = [];
+    for (let i = 0; i < text.length; i += maxLength) {
+        parts.push(text.substring(i, i + maxLength));
+    }
+    return parts;
+}
+
 function showNowPlayingOverlay(nowPlaying) {
     isOverlayVisible = true; 
     const W = 80; const L = 60; const T = 160; 
     const totalHeight = currentProgram ? 20 : 14; 
+    
+    // Background a header
     sendBtn(MY_UCID, OVERLAY_BG, L, T, W, totalHeight, '', ButtonStyle.ISB_DARK);
     sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W, 4, t('OVERLAY_HEADER'), ButtonStyle.ISB_DARK);
     sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
-    let artist = (nowPlaying.artist || "").substring(0, 40);
-    let song = (nowPlaying.song || nowPlaying.fullTitle || "").substring(0, 40);
-    sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, W, 5, `^2${artist}`, ButtonStyle.ISB_DARK);
-    sendBtn(MY_UCID, OVERLAY_SONG, L, T+9, W, 5, `^7${song}`, ButtonStyle.ISB_DARK);
+    
+    // Zpracování textu
+    let artist = (nowPlaying.artist || "");
+    let song = (nowPlaying.song || nowPlaying.fullTitle || "");
+    
+    // Rozdělit na části (max 40 znaků na řádek v overlay)
+    overlayArtistParts = createTickerParts(artist, 60);
+    overlaySongParts = createTickerParts(song, 60);
+    
+    // Zastavit starý ticker
+    if (overlayTickerTimer) {
+        clearInterval(overlayTickerTimer);
+        overlayTickerTimer = null;
+    }
+    overlayTickerIndex = 0;
+    
+    // Zobraz první části
+    updateOverlayText();
+    
+    // Spustit ticker JEN pokud je něco delší než 15 znaků
+    if (artist.length > 15 || song.length > 15) {
+        overlayTickerTimer = setInterval(() => {
+            overlayTickerIndex++;
+            const maxParts = Math.max(overlayArtistParts.length, overlaySongParts.length);
+            if (overlayTickerIndex >= maxParts) {
+                overlayTickerIndex = 0;
+            }
+            updateOverlayText();
+        }, 3000); // Každé 3 sekundy
+    }
+    
+    // Program (pokud existuje)
     if (currentProgram) {
         let prog = currentProgram.name.substring(0, 40);
         sendBtn(MY_UCID, OVERLAY_PROGRAM, L, T+14, W, 5, `${t('OVERLAY_PROGRAM')}^7${prog}`, ButtonStyle.ISB_DARK);
     }
 }
 
+
 function clearNowPlayingOverlay() {
     isOverlayVisible = false;
+    
+    // Zastavit ticker timer
+    if (overlayTickerTimer) {
+        clearInterval(overlayTickerTimer);
+        overlayTickerTimer = null;
+    }
+    
+    // Vyčistit tlačítka
     for (let i = OVERLAY_BG; i <= OVERLAY_CLOSE; i++) {
         inSim.send(new IS_BFN({ReqI: 1, SubT: 1, UCID: MY_UCID, ClickID: i}));
     }
 }
-
 function sendBtn(ucid, id, l, t, w, h, text, style, typeIn = 0) {
     if (ucid !== MY_UCID && ucid !== 255) return;
     let finalStyle = style;
@@ -539,7 +638,9 @@ function clearGuiButtons(ucid) {
 function updateStatusButtons() {
     const state = playerStates.get(MY_UCID);
     if (state && state.state === 'main') {
-        let txt = !currentStation ? t('STATUS_STOPPED') : `^2${currentDisplayParts[tickerIndex] || currentStation}`;
+        // Tady se vypisuje text. Pokud máme části, zobrazíme aktuální část.
+        let txtPart = currentDisplayParts[tickerIndex] || currentStation || t('STATUS_STOPPED');
+        let txt = `^2${txtPart}`; 
         sendBtn(MY_UCID, 225, UI_LEFT+1, UI_TOP+36, 28, 4, txt.substring(0,27), ButtonStyle.ISB_DARK);
     }
 }
@@ -577,8 +678,11 @@ function renderUI(ucid, requestedState, extraData = null, page = 0) {
         sendBtn(ucid, 220, L+1, T+23, 28, 5, `^3[ ^7${t('BTN_SEARCH')} ^3]`, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         sendBtn(ucid, 213, L+1, T+29, 28, 5, `^7[ ^0${t('BTN_LANG')} ^7]`, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         
-        let txt = currentStation ? `^2${currentDisplayParts[tickerIndex] || currentStation}` : t('STATUS_STOPPED');
-        sendBtn(ucid, 225, L+1, T+36+5, 28, 4, txt.substring(0,27), ButtonStyle.ISB_DARK);
+        // Zobrazíme aktuální stav textu (první část nebo 'Stopped')
+        let txtPart = currentDisplayParts[tickerIndex] || currentStation || t('STATUS_STOPPED');
+        let txt = `^2${txtPart}`;
+        sendBtn(MY_UCID, 225, L+1, T+36+5, 28, 4, txt.substring(0,27), ButtonStyle.ISB_DARK);
+        
         sendBtn(ucid, 216, L+1, T+41+5, 5, 5, '^1-', ButtonStyle.ISB_CLICK | ButtonStyle.ISB_LIGHT);
         sendBtn(ucid, 218, L+7, T+41+5, 16, 5, `^7VOL: ^3${currentVolume}%`, ButtonStyle.ISB_LIGHT);
         sendBtn(ucid, 217, L+24, T+41+5, 5, 5, '^2+', ButtonStyle.ISB_CLICK | ButtonStyle.ISB_LIGHT);
