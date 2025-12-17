@@ -3,8 +3,8 @@ name: Build Release
 on:
   push:
     tags:
-      - 'v*'  # Spustí se při push tagu typu v1.0.0
-  workflow_dispatch:  # Umožní manuální spuštění
+      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Důležité pro získání historie commitů
+          fetch-depth: 0
 
       - name: Setup Node.js 21+
         uses: actions/setup-node@v4
@@ -30,132 +30,110 @@ jobs:
       - name: Build executable with SEA
         run: npm run build
       
-      # --- AI GENERATION STEP START (GEMINI) ---
-      - name: Generate AI Release Notes
-        id: ai_notes
-        if: startsWith(github.ref, 'refs/tags/')
+      # --- KROK 1: VYTVOŘENÍ JS SOUBORU (Obchází YAML syntax errory) ---
+      - name: Create Release Notes Script
+        shell: powershell
+        run: |
+          $scriptContent = @"
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+
+          // MODEL CONFIG
+          const GEMINI_MODEL = 'gemini-3-flash-preview';
+
+          console.log('--- STARTING HISTORY ---');
+
+          try { execSync('git fetch --tags --force'); } catch (e) {}
+
+          let commits = '';
+          let diff = '';
+
+          try {
+            const prevTag = execSync('git describe --tags --abbrev=0 HEAD^').toString().trim();
+            console.log('Prev Tag: ' + prevTag);
+            const range = prevTag + '..HEAD';
+            commits = execSync('git log ' + range + ' --pretty=format:"- %s (%an)"').toString();
+            diff = execSync('git diff ' + range + ' --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*" ":!*.png" ":!*.exe"').toString();
+          } catch (e) {
+            console.log('Standard tag fetch failed.');
+          }
+
+          if (!commits || commits.trim().length === 0) {
+            console.log('Using fallback history.');
+            commits = execSync('git log -n 50 --pretty=format:"- %s (%an)"').toString();
+            try {
+               diff = execSync('git diff HEAD~50..HEAD --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*" ":!*.png" ":!*.exe"').toString();
+            } catch (e) { diff = 'Diff unavailable.'; }
+          }
+
+          const tagName = process.env.TAG_NAME || 'Unknown Version';
+          
+          const prompt = 'You are a Release Manager. Write release notes for ' + tagName + '.\n\n' +
+            'COMMITS:\n' + commits + '\n\n' +
+            'STATS:\n' + diff + '\n\n' +
+            'Instructions:\n' +
+            '1. Header with version.\n' +
+            '2. Group by: New Features, Bug Fixes, Improvements.\n' +
+            '3. Mention TC API logic or Chase logic specifically if found.\n' +
+            '4. Use Markdown.\n' +
+            '5. Link issues: github.com/vlastikyoutubeko/lfs-lmar/issues\n';
+
+          async function run() {
+            if (!process.env.GEMINI_API_KEY) {
+              console.log('No API Key.');
+              fs.writeFileSync('release_body.md', '## Manual Check Required');
+              return;
+            }
+
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + process.env.GEMINI_API_KEY;
+            
+            try {
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+              });
+
+              if (!response.ok) throw new Error('API Error: ' + response.status);
+
+              const data = await response.json();
+              if (data.candidates && data.candidates[0].content) {
+                fs.writeFileSync('release_body.md', data.candidates[0].content.parts[0].text);
+              } else {
+                fs.writeFileSync('release_body.md', '## AI Generation Failed');
+              }
+            } catch (e) {
+              console.error(e);
+              fs.writeFileSync('release_body.md', '## AI Error');
+            }
+          }
+
+          run();
+          "@
+          
+          Set-Content -Path "release-notes.js" -Value $scriptContent -Encoding UTF8
+
+      # --- KROK 2: SPUŠTĚNÍ SKRIPTU ---
+      - name: Generate AI Notes
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TAG_NAME: ${{ github.ref_name }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execSync } = require('child_process');
-            
-            console.log("--- STARTING GIT HISTORY EXTRACTION ---");
-            
-            // 1. Ujistíme se, že máme tagy (pro jistotu)
-            try {
-              execSync('git fetch --tags --force');
-            } catch (e) {
-              console.log("Fetch tags warning: " + e.message);
-            }
+        run: node release-notes.js
 
-            let commits = '';
-            let diff = '';
-
-            // 2. Pokus o získání historie podle tagů
-            try {
-              // Získáme předchozí tag
-              // Odstraněno '2>$null' (PowerShell syntax), execSync používá cmd.exe na Windows runneru
-              const prevTag = execSync('git describe --tags --abbrev=0 HEAD^').toString().trim();
-              console.log(`Previous Tag found: ${prevTag}`);
-              
-              const range = `${prevTag}..HEAD`;
-              commits = execSync(`git log ${range} --pretty=format:"- %s (%an)"`).toString();
-              diff = execSync(`git diff ${range} --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*" ":!*.png" ":!*.exe"`).toString();
-            } catch (e) {
-              console.log("Standard tag comparison failed or no previous tag. Moving to fallback.");
-            }
-
-            // 3. FALLBACK (ZÁCHRANA): Pokud je historie prázdná, vezmeme posledních 50 commitů "natvrdo"
-            if (!commits || commits.trim().length === 0) {
-                console.log("⚠️ Commits empty. Falling back to last 50 commits directly.");
-                commits = execSync('git log -n 50 --pretty=format:"- %s (%an)"').toString();
-                try {
-                   diff = execSync('git diff HEAD~50..HEAD --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*" ":!*.png" ":!*.exe"`).toString();
-                } catch (e) { diff = "Diff unavailable for fallback."; }
-            }
-            
-            console.log(`Commits length sent to AI: ${commits.length}`);
-
-            // 4. Prompt pro AI
-            const prompt = `
-            You are a Release Manager for a software called "LFS Live Map + Radio".
-            Create a structured release note for version ${process.env.TAG_NAME}.
-            
-            Here are the changes since the last version (analyzed from git history):
-            
-            COMMITS:
-            ${commits}
-            
-            CHANGED FILES STATS:
-            ${diff}
-            
-            Instructions:
-            1. Start with a header including the version.
-            2. Summarize the changes based on the commits and files touched.
-            3. Group changes into sections: 🚀 New Features, 🐛 Bug Fixes, 🛠️ Improvements (if applicable).
-            4. If the code suggests changes to the API (TC API logic) or server logic (chase logic), mention it specifically.
-            5. Use Markdown format.
-
-            Also, include links to issues if mentioned. They are at github.com/vlastikyoutubeko/lfs-lmar/issues.
-            Do not include "Documentation: [Link to Wiki/Docs]", as there is NONE! 
-            ALSO, DO NOT INCLUDE ANYTHING ELSE THAN THE README. ONLY THE RELEASE NOTE MARKDOWN.
-            `;
-
-            // 5. Volání Google Gemini API (REST)
-            if (!process.env.GEMINI_API_KEY) {
-                console.log("No GEMINI_API_KEY found. Skipping AI summary.");
-                return "## ⚠️ AI Summary Unavailable\nCheck commits manually.";
-            }
-
-            // POUŽITÍ TVÉHO MODELU (gemini-3-flash-preview)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${process.env.GEMINI_API_KEY}`;
-
-            const requestBody = {
-              contents: [{
-                parts: [{ text: prompt }]
-              }]
-            };
-
-            try {
-                const response = await fetch(url, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(requestBody)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Gemini API Error: ${response.status} ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                
-                // Parsování odpovědi z Gemini
-                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts.length > 0) {
-                    const aiSummary = data.candidates[0].content.parts[0].text;
-                    core.setOutput('summary', aiSummary);
-                } else {
-                    console.error("Unexpected Gemini response structure:", JSON.stringify(data));
-                    core.setOutput('summary', "## ⚠️ AI Generation Failed (Empty response)");
-                }
-
-            } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                core.setOutput('summary', "## ⚠️ AI Generation Error\nSee build logs for details.");
-            }
-
-      # --- AI GENERATION STEP END ---
+      - name: Read Release Notes
+        id: read_notes
+        shell: powershell
+        run: |
+          $notes = Get-Content release_body.md -Raw
+          # Escape multiline string for GitHub Actions output
+          $notes = $notes -replace '%','%25' -replace '\n','%0A' -replace '\r','%0D'
+          echo "summary=$notes" >> $env:GITHUB_OUTPUT
 
       - name: Verify executable
         run: |
           if (Test-Path "dist\lfs-live-map-radio.exe") {
-            Write-Host "Executable created successfully"
-            $size = (Get-Item "dist\lfs-live-map-radio.exe").Length / 1MB
-            Write-Host "Size: $([math]::Round($size, 2)) MB"
+            Write-Host "Executable OK"
           } else {
-            Write-Error "Executable not found"
             exit 1
           }
         shell: powershell
@@ -175,18 +153,14 @@ jobs:
           files: release/LFS-LiveMap-Radio-${{ github.ref_name }}.zip
           generate_release_notes: false 
           body: |
-            ${{ steps.ai_notes.outputs.summary }}
+            ${{ steps.read_notes.outputs.summary }}
             
             ---
             
-            ### 📦 Installation:
-            1. Download and extract ZIP
+            ### 📦 Installation
+            1. Download ZIP
             2. Run `lfs-live-map-radio.exe`
             3. In LFS: `/insim 29999`
             4. Open browser: `http://localhost:3000`
-            
-            ### 📋 Requirements:
-            - Windows 10/11 x64
-            - MPV or VLC (for radio playback)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
