@@ -42,29 +42,49 @@ jobs:
           script: |
             const { execSync } = require('child_process');
             
-            // 1. Zjistit předchozí tag pro porovnání
-            let prevTag = '';
+            console.log("--- STARTING GIT HISTORY EXTRACTION ---");
+            
+            // 1. Ujistíme se, že máme tagy (pro jistotu)
             try {
-              prevTag = execSync('git describe --tags --abbrev=0 HEAD^').toString().trim();
-              console.log(`Previous tag detected: ${prevTag}`);
+              execSync('git fetch --tags --force');
             } catch (e) {
-              console.log("No previous tag found, assuming first release.");
+              console.log("Fetch tags warning: " + e.message);
             }
 
-            const range = prevTag ? `${prevTag}..HEAD` : 'HEAD';
-            
-            // 2. Získat Commits a Diff
-            const commits = execSync(`git log ${range} --pretty=format:"- %s (%an)"`).toString();
-            
-            // Získáme diff, ale ignorujeme velké soubory, lock files a binárky
-            const diff = execSync(`git diff ${range} --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*" ":!*.png" ":!*.exe"`).toString();
+            let commits = '';
+            let diff = '';
 
-            // 3. Prompt pro AI
+            // 2. Pokus o získání historie podle tagů
+            try {
+              // Získáme předchozí tag
+              const prevTag = execSync('git describe --tags --abbrev=0 HEAD^ 2>$null').toString().trim();
+              console.log(`Previous Tag found: ${prevTag}`);
+              
+              const range = `${prevTag}..HEAD`;
+              commits = execSync(`git log ${range} --pretty=format:"- %s (%an)"`).toString();
+              diff = execSync(`git diff ${range} --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*" ":!*.png" ":!*.exe"`).toString();
+            } catch (e) {
+              console.log("Standard tag comparison failed or no previous tag. Moving to fallback.");
+            }
+
+            // 3. FALLBACK (ZÁCHRANA): Pokud je historie prázdná, vezmeme posledních 50 commitů "natvrdo"
+            // Toto řeší problém, kdy AI generovala obecný text, protože nedostala žádná data.
+            if (!commits || commits.trim().length === 0) {
+                console.log("⚠️ Commits empty. Falling back to last 50 commits directly.");
+                commits = execSync('git log -n 50 --pretty=format:"- %s (%an)"').toString();
+                try {
+                   diff = execSync('git diff HEAD~50..HEAD --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*" ":!*.png" ":!*.exe"`).toString();
+                } catch (e) { diff = "Diff unavailable for fallback."; }
+            }
+            
+            console.log(`Commits length sent to AI: ${commits.length}`);
+
+            // 4. Prompt pro AI
             const prompt = `
             You are a Release Manager for a software called "LFS Live Map + Radio".
             Create a structured release note for version ${process.env.TAG_NAME}.
             
-            Here are the changes since the last version:
+            Here are the changes since the last version (analyzed from git history):
             
             COMMITS:
             ${commits}
@@ -79,18 +99,18 @@ jobs:
             4. If the code suggests changes to the API (TC API logic) or server logic (chase logic), mention it specifically.
             5. Use Markdown format.
 
-            Also, include links to issues. They are at github.com/vlastikyoutubeko/lfs-lmar/issues.
-            
+            Also, include links to issues if mentioned. They are at github.com/vlastikyoutubeko/lfs-lmar/issues.
+            Do not include "Documentation: [Link to Wiki/Docs]", as there is NONE! 
+            ALSO, DO NOT INCLUDE ANYTHING ELSE THAN THE README. ONLY THE RELEASE NOTE MARKDOWN.
             `;
 
-            // 4. Volání Google Gemini API (REST)
+            // 5. Volání Google Gemini API (REST)
             if (!process.env.GEMINI_API_KEY) {
                 console.log("No GEMINI_API_KEY found. Skipping AI summary.");
                 return "## ⚠️ AI Summary Unavailable\nCheck commits manually.";
             }
 
-            // Používáme gemini-1.5-flash, je rychlý a efektivní pro tento účel.
-            // Pokud chceš jiný model, změň URL (např. gemini-1.5-pro).
+            // Používáme model, který jsi specifikoval (gemini-3-flash-preview)
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
             const requestBody = {
