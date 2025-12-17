@@ -1,0 +1,101 @@
+{
+  "favorites": [
+    {
+      "name": "Hitrádio FM",
+      "url": "https://ice.abradio.cz/hit128.mp3",
+      "metadataProvider": "abradia",
+      "metadataSlug": "hitradio-north-music"
+    },
+    {
+      "name": "Radio Beat",
+      "url": "https://stream.rcast.net/70838"
+    },
+    {
+      "name": "Evropa 2",
+      "url": "https://ice.actve.net/fm-evropa2-128"
+    },
+    {
+      "name": "Frekvence 1",
+      "url": "https://ice.actve.net/fm-frekvence1-128"
+    }
+  ],
+  "recent": [
+    {
+      "name": "Radio Kiss",
+      "playedAt": "2025-12-17T14:46:35.580Z",
+      "url": "https://stream.rcs.revma.com/asn0cmvb938uv",
+      "provider": "abradia",
+      "slug": "radio-kiss"
+    },
+    {
+      "name": "Hitrádio North Music",
+      "playedAt": "2025-12-17T14:46:31.594Z",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/HITRADIO_NORTH_MUSIC.aac",
+      "provider": "abradia",
+      "slug": "hitradio-north-music"
+    },
+    {
+      "name": "Kiss Radio - 128MP3",
+      "playedAt": "2025-12-16T00:56:50.565Z",
+      "url": "https://icecast1.play.cz/kissdelta128.mp3",
+      "id": "fac2e54e-c199-46fb-afd9-e47b6f7ee5d4",
+      "country": "CZ",
+      "bitrate": 0,
+      "codec": "MP3"
+    },
+    {
+      "name": "Sky News Radio Latest News UK",
+      "playedAt": "2025-12-16T01:23:58.977Z",
+      "url": "https://video.news.sky.com/snr/news/snrnews.mp3",
+      "id": "a6c05cb5-180a-4739-bc1a-c3b18011fa00",
+      "country": "GB",
+      "bitrate": 0,
+      "codec": "MP3"
+    },
+    {
+      "name": "Fajn Radio",
+      "playedAt": "2025-12-16T00:36:10.857Z",
+      "provider": "abradia",
+      "slug": "fajn-radio"
+    },
+    {
+      "name": "Rádio BLANÍK",
+      "playedAt": "2025-12-15T23:56:43.483Z",
+      "provider": "abradia",
+      "slug": "radio-blanik"
+    },
+    {
+      "name": "Rádio BLANÍK",
+      "playedAt": "2025-12-15T23:49:11.013Z",
+      "url": "http://www.radioblanik.cz/"
+    },
+    {
+      "name": "Rock Radio",
+      "playedAt": "2025-12-15T23:40:27.204Z",
+      "url": "https://rockovyradio.cz/"
+    },
+    {
+      "name": "Phonk Nation Radio",
+      "url": "https://radio.mxnticek.eu/listen/phonk/128.mp3",
+      "playedAt": "2025-12-15T23:23:00.095Z"
+    },
+    {
+      "name": "Evropa 2",
+      "url": "https://ice.actve.net/fm-evropa2-128",
+      "playedAt": "2025-12-15T23:22:48.577Z"
+    },
+    {
+      "name": "Radio Beat",
+      "url": "https://stream.rcast.net/70838",
+      "playedAt": "2025-12-15T23:22:46.835Z"
+    },
+    {
+      "name": "Hitrádio FM",
+      "url": "https://ice.abradio.cz/hit128.mp3",
+      "playedAt": "2025-12-15T23:22:32.419Z",
+      "metadataProvider": "abradia",
+      "metadataSlug": "hitradio-north-music"
+    }
+  ],
+  "lang": "en"
+}

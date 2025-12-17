@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sony DSX-M80 Emulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- NAČTENÍ FONTU --- */
+        @font-face {
+            font-family: 'LCD14';
+            src: url('https://raw.githubusercontent.com/ctrlcctrlv/lcd-font/master/otf/LCD14.otf') format('opentype');
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        
+        body {
+            background-color: #050505;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        /* --- FACEPLATE --- */
+        .faceplate {
+            width: 800px;
+            height: 240px;
+            background: #1a1a1a;
+            background-image: linear-gradient(to bottom, #2a2a2a, #111111);
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 0 0 4px #000, 0 0 50px rgba(0,0,0,0.8);
+            display: grid;
+            grid-template-columns: 180px 1fr 120px;
+            padding: 15px;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .design-line-left, .design-line-right {
+            position: absolute; top: 0; bottom: 0; width: 2px; background: #000; opacity: 0.3; z-index: 0;
+        }
+        .design-line-left { left: 175px; transform: skewX(-10deg); }
+        .design-line-right { right: 115px; transform: skewX(10deg); }
+
+        /* --- OVLÁDACÍ PRVKY --- */
+        .section-left { position: relative; z-index: 1; }
+        .section-center { display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1; padding: 0 10px; }
+        .section-right { display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1; gap: 15px; }
+
+        .btn-round-small {
+            width: 40px; height: 25px; background: #151515; border: 1px solid #333;
+            border-radius: 4px; color: #ccc; font-size: 10px; cursor: pointer;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1); transition: all 0.1s;
+        }
+        .btn-round-small:active { transform: translateY(1px); background: #000; }
+        
+        .btn-src {
+            position: absolute; top: 0; left: 0; width: 60px; height: 35px;
+            border-bottom-right-radius: 20px; font-weight: bold; border-top: none; border-left: none;
+        }
+
+        .volume-knob-container {
+            width: 110px; height: 110px; border-radius: 50%;
+            background: conic-gradient(from 180deg, #333, #000, #333);
+            display: flex; justify-content: center; align-items: center;
+            position: absolute; top: 50%; transform: translateY(-50%);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.8); border: 2px solid #000;
+        }
+        .volume-knob-inner {
+            width: 80%; height: 80%; border-radius: 50%;
+            background: radial-gradient(circle, #222 0%, #000 100%);
+            box-shadow: inset 0 0 10px #000;
+        }
+
+        .call-btn {
+            position: absolute; bottom: 0; left: 20px; width: 50px; height: 30px;
+            background: #111; color: white; border: none; font-size: 10px;
+            clip-path: polygon(0 0, 100% 0, 80% 100%, 0% 100%);
+        }
+
+        /* --- DISPLEJ --- */
+        .display-unit {
+            width: 100%; background: #000; border: 2px solid #333;
+            border-radius: 4px; padding: 8px 15px; margin-bottom: 10px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,1);
+        }
+
+        .lcd-screen {
+            background: #080808; height: 60px; display: flex; align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+        }
+
+        .lcd-grid { display: flex; gap: 4px; }
+
+        .digit {
+            font-family: 'LCD14', monospace; 
+            font-size: 38px;
+            color: #e0ffff;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+            width: 28px;
+            text-align: center;
+            position: relative;
+            font-weight: normal;
+        }
+        
+        .digit::after {
+            content: "~"; 
+            position: absolute; left: 0; top: 0; width: 100%;
+            color: #1a2a30; z-index: -1; text-shadow: none; opacity: 0.2;
+        }
+
+        .lcd-screen::before {
+            content: " "; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.5) 50%);
+            background-size: 100% 4px; pointer-events: none; z-index: 10;
+        }
+
+        /* --- OSTATNÍ --- */
+        .sony-logo {
+            font-family: serif; color: #ddd; font-size: 24px; font-weight: bold;
+            letter-spacing: 1px; margin-bottom: 5px; text-shadow: 0 1px 2px black;
+        }
+        .presets-row { display: flex; gap: 2px; width: 100%; margin-bottom: 10px; }
+        .preset-btn {
+            flex: 1; background: #1a1a1a; border: 1px solid #000; border-top: 1px solid #333;
+            color: #aaa; height: 25px; font-size: 12px; font-weight: bold; cursor: pointer;
+        }
+        .preset-btn:active { background: #333; color: white; }
+        .preset-btn.extra-bass { flex: 2; font-size: 10px; letter-spacing: 1px; color: #fff; }
+
+        .volume-container { width: 100%; display: flex; align-items: center; gap: 10px; }
+        .vol-label { font-size: 10px; color: #666; }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 20px; background: #ccc; cursor: pointer; margin-top: -4px; box-shadow: 0 1px 3px black; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #333; }
+
+        .usb-cover { width: 40px; height: 70px; background: #111; border: 1px solid #333; display: flex; justify-content: center; align-items: center; color: #555; font-size: 20px; }
+        .seek-btn { background: transparent; border: none; color: #ddd; font-size: 20px; cursor: pointer; }
+        .seek-btn:active { color: #fff; }
+        
+        .label-text { font-size: 9px; color: #777; text-transform: uppercase; }
+        .pos-src { position: absolute; top: 30px; left: 15px; }
+        .pos-dspl { position: absolute; bottom: 20px; right: 20px; text-align: right;}
+    </style>
+</head>
+<body>
+
+    <div class="faceplate">
+        <div class="design-line-left"></div>
+        <div class="design-line-right"></div>
+
+        <div class="section-left">
+            <button class="btn-round-small btn-src" onclick="togglePower()">OFF<br><span style="font-size:8px; color:#aaa">SRC</span></button>
+            <div class="label-text pos-src"></div>
+            <div class="volume-knob-container"><div class="volume-knob-inner"></div></div>
+            <button class="btn-round-small" style="position: absolute; top: 40px; left: 10px;">PTY</button>
+            <button class="btn-round-small" style="position: absolute; bottom: 40px; left: 10px;">MODE</button>
+            <button class="call-btn">CALL</button>
+        </div>
+
+        <div class="section-center">
+            <div class="sony-logo">SONY</div>
+            <div class="display-unit">
+                <div class="lcd-screen">
+                    <div class="lcd-grid" id="lcdGrid">
+                        <div class="digit"></div><div class="digit"></div><div class="digit"></div><div class="digit"></div><div class="digit"></div>
+                        <div class="digit"></div><div class="digit"></div><div class="digit"></div><div class="digit"></div><div class="digit"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="presets-row">
+                <button class="preset-btn">1</button><button class="preset-btn">2</button><button class="preset-btn">3</button>
+                <button class="preset-btn extra-bass">EXTRA BASS</button>
+                <button class="preset-btn">4</button><button class="preset-btn">5</button><button class="preset-btn">6</button>
+            </div>
+            <div class="volume-container">
+                <span class="vol-label">VOL</span>
+                <input type="range" min="0" max="100" value="50" id="volumeSlider">
+                <span class="vol-label" id="volumeValue">50</span>
+            </div>
+        </div>
+
+        <div class="section-right">
+            <div class="label-text" style="align-self: flex-end; margin-right: 10px; margin-bottom: 5px;">DSX-M80</div>
+            <button class="seek-btn">⏭</button>
+            <div class="usb-cover"><span>ψ</span></div>
+            <button class="seek-btn">⏮</button>
+            <div class="label-text pos-dspl">DSPL<br>SCRL</div>
+        </div>
+    </div>
+
+    <script>
+        const DISPLAY_SLOTS = 10;
+        let ws = null;
+        let reconnectInterval = null;
+        
+        let radioState = {
+            isOn: true,
+            station: "LFS RADIO",
+            artist: "",
+            song: "",
+            volume: 50
+        };
+
+        let displayMode = 2; // 0=Artist, 1=Song, 2=Station
+        let rotationTimer = null;
+        let scrollTimer = null;
+
+        function init() {
+            displayOnLCD("READING...", false);
+            connectWebSocket();
+        }
+
+        // --- POWER LOGIC ---
+        function togglePower() {
+            if (radioState.isOn) {
+                radioState.isOn = false;
+                stopRotationLogic();
+                displayOnLCD("GOODBYE", false);
+                setTimeout(() => { if (!radioState.isOn) displayOnLCD("STANDBY", false); }, 2000);
+            } else {
+                radioState.isOn = true;
+                displayOnLCD("SONY", false);
+                setTimeout(() => {
+                    if (radioState.isOn) {
+                        displayOnLCD("FM RADIO", false);
+                        
+                        // Zde se ptáme serveru na aktuální stav
+                        if(ws && ws.readyState === WebSocket.OPEN) {
+                             console.log("Power ON: Odesílám žádost o status...");
+                             ws.send(JSON.stringify({ type: "get_status" }));
+                        }
+
+                        setTimeout(() => { if (radioState.isOn) startRotationLogic(); }, 1000);
+                    }
+                }, 1000);
+            }
+        }
+
+        // --- DISPLEJ & ROTACE ---
+        function startRotationLogic() {
+            stopRotationLogic();
+            updateDisplayByMode();
+            rotationTimer = setInterval(() => {
+                displayMode++;
+                if (displayMode > 2) displayMode = 0;
+                updateDisplayByMode();
+            }, 10000);
+        }
+
+        function stopRotationLogic() {
+            if (rotationTimer) clearInterval(rotationTimer);
+            if (scrollTimer) clearInterval(scrollTimer);
+        }
+
+        function updateDisplayByMode() {
+            if (!radioState.isOn) return;
+            let textToShow = "";
+            
+            switch (displayMode) {
+                case 0: 
+                    textToShow = radioState.artist && radioState.artist !== "UNKNOWN" ? radioState.artist : "NO ARTIST";
+                    break;
+                case 1: 
+                    textToShow = radioState.song || "NO MUSIC";
+                    break;
+                case 2: 
+                    textToShow = radioState.station || "FM";
+                    break;
+            }
+            displayOnLCD(textToShow, true);
+        }
+
+        function toAscii(str) {
+            if (!str) return "";
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+        }
+
+        function displayOnLCD(rawText, allowScroll) {
+            if (scrollTimer) clearInterval(scrollTimer);
+            let text = toAscii(rawText);
+            const grid = document.querySelectorAll('.digit');
+            grid.forEach(d => d.textContent = "");
+
+            if (text.length <= DISPLAY_SLOTS || !allowScroll) {
+                let padding = Math.max(0, Math.floor((DISPLAY_SLOTS - text.length) / 2));
+                let paddedText = " ".repeat(padding) + text;
+                for (let i = 0; i < DISPLAY_SLOTS; i++) {
+                    if (paddedText[i]) grid[i].textContent = paddedText[i];
+                }
+            } else {
+                let scrollText = text + "     "; 
+                let offset = 0;
+                const scrollStep = () => {
+                    for (let i = 0; i < DISPLAY_SLOTS; i++) {
+                        let charIndex = (offset + i) % scrollText.length;
+                        grid[i].textContent = scrollText[charIndex];
+                    }
+                    offset++;
+                };
+                scrollStep();
+                scrollTimer = setInterval(scrollStep, 350);
+            }
+        }
+
+        // --- PARSE INFO ---
+        function parseTrackInfo(fullTitle) {
+            if (fullTitle && fullTitle.includes("-")) {
+                let parts = fullTitle.split("-");
+                radioState.artist = parts[0].trim();
+                radioState.song = parts.slice(1).join("-").trim();
+            } else {
+                radioState.artist = "UNKNOWN";
+                radioState.song = fullTitle ? fullTitle.trim() : "";
+            }
+        }
+
+        // --- WEBSOCKET ---
+        function connectWebSocket() {
+            console.log("Zahajuji WebSocket připojení...");
+            ws = new WebSocket(`ws://localhost:3001`);
+            
+            ws.onopen = () => {
+                console.log("WebSocket připojen! Odesílám 'get_status'...");
+                ws.send(JSON.stringify({ type: "get_status" }));
+                if (reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
+            };
+            
+            ws.onclose = () => {
+                console.warn("WebSocket odpojen. Zkusím znovu za 3s...");
+                if (!reconnectInterval) reconnectInterval = setInterval(connectWebSocket, 3000);
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log("Příchozí data:", data); // LOGOVÁNÍ PŘÍCHOZÍCH DAT
+                    handleServerData(data);
+                } catch (e) { console.error("Chyba při zpracování dat:", e); }
+            };
+        }
+
+function handleServerData(data) {
+            // LOG pro debugování
+            console.log("Status update:", data);
+
+            if (data.type === 'init' && data.radio) {
+                if (data.radio.station) radioState.station = data.radio.station;
+                
+                // Oprava metadat pro INIT
+                let meta = data.radio.metadata;
+                processMetadata(meta);
+                
+                if (data.radio.volume) renderVolume(data.radio.volume);
+                if(radioState.isOn) { 
+                    displayMode = 0; 
+                    startRotationLogic(); 
+                }
+            } 
+            else if (data.type === 'radio_status') {
+                if (data.status === 'playing') {
+                    if (data.station) radioState.station = data.station;
+                    radioState.artist = "LOADING";
+                    radioState.song = "";
+                    if(radioState.isOn) startRotationLogic();
+                } 
+                else if (data.status === 'stopped') {
+                    radioState.station = "STOPPED";
+                    radioState.artist = "";
+                    radioState.song = "";
+                    displayOnLCD("STOPPED", false);
+                } 
+                // OPRAVA ZDE: Data nejsou v 'extra', ale přímo v rootu
+                else if (data.status === 'metadata') {
+                    // Posíláme celý objekt 'data', protože v něm je artist/song
+                    processMetadata(data);
+                    
+                    if (radioState.isOn) { 
+                        displayMode = 0; // Skočit hned na interpreta
+                        startRotationLogic(); 
+                    }
+                } 
+                else if (data.status === 'volume_change') {
+                    renderVolume(data.volume); // Server posílá 'volume', ne 'extra' (upraveno v server.js)
+                }
+            }
+        }
+
+        function processMetadata(meta) {
+            // Pokud je to string (z initu)
+            if (typeof meta === 'string') {
+                parseTrackInfo(meta);
+                return;
+            }
+
+            // Pokud je to objekt (z websocketu)
+            if (meta.artist && meta.song) {
+                radioState.artist = meta.artist;
+                radioState.song = meta.song;
+            } else if (meta.fullTitle) {
+                parseTrackInfo(meta.fullTitle);
+            }
+        }
+
+        function renderVolume(vol) {
+            radioState.volume = vol;
+            document.getElementById('volumeSlider').value = vol;
+            document.getElementById('volumeValue').textContent = vol;
+        }
+
+        document.getElementById('volumeSlider').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('volumeValue').textContent = val;
+            if (radioState.isOn) {
+                stopRotationLogic();
+                displayOnLCD("VOL " + val, false);
+                clearTimeout(window.volTimeout);
+                window.volTimeout = setTimeout(() => { startRotationLogic(); }, 1500);
+            }
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'change_volume', delta: val - radioState.volume }));
+            }
+            radioState.volume = val;
+        });
+
+        init();
+    </script>
+</body>
+</html>
