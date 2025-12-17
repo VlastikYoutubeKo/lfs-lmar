@@ -30,15 +30,14 @@ jobs:
       - name: Build executable with SEA
         run: npm run build
       
-      # --- KROK 1: VYTVOŘENÍ JS SOUBORU (.cjs kvůli "type": "module") ---
+      # --- KROK 1: VYTVOŘENÍ JS SOUBORU ---
       - name: Create Release Notes Script
         shell: powershell
         run: |
           $scriptContent = @"
-          const { execSync } = require('child_process');
-          const fs = require('fs');
+          import { execSync } from 'child_process';
+          import fs from 'fs';
 
-          // MODEL CONFIG
           const GEMINI_MODEL = 'gemini-3-flash-preview';
 
           console.log('--- STARTING HISTORY ---');
@@ -50,7 +49,7 @@ jobs:
 
           try {
             const prevTag = execSync('git describe --tags --abbrev=0 HEAD^').toString().trim();
-            console.log('Prev Tag: ' + prevTag);
+            console.log('Prev Tag found: ' + prevTag);
             const range = prevTag + '..HEAD';
             commits = execSync('git log ' + range + ' --pretty=format:"- %s (%an)"').toString();
             diff = execSync('git diff ' + range + ' --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*" ":!*.png" ":!*.exe"').toString();
@@ -60,10 +59,10 @@ jobs:
 
           if (!commits || commits.trim().length === 0) {
             console.log('Using fallback history.');
-            commits = execSync('git log -n 50 --pretty=format:"- %s (%an)"').toString();
             try {
-               diff = execSync('git diff HEAD~50..HEAD --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*" ":!*.png" ":!*.exe"').toString();
-            } catch (e) { diff = 'Diff unavailable.'; }
+                commits = execSync('git log -n 30 --pretty=format:"- %s (%an)"').toString();
+            } catch (e) { commits = 'No commits available.'; }
+            diff = 'Full diff stats unavailable in fallback mode.';
           }
 
           const tagName = process.env.TAG_NAME || 'Unknown Version';
@@ -74,9 +73,9 @@ jobs:
             'Instructions:\n' +
             '1. Header with version.\n' +
             '2. Group by: New Features, Bug Fixes, Improvements.\n' +
-            '3. Mention TC API logic or Chase logic specifically if found.\n' +
+            '3. Mention TC API logic or Chase logic specifically if found in commits.\n' +
             '4. Use Markdown.\n' +
-            '5. Link issues: github.com/vlastikyoutubeko/lfs-lmar/issues\n6. Do not include anything else, like pretalk before markdown.';
+            '5. Link issues: github.com/vlastikyoutubeko/lfs-lmar/issues\n';
 
           async function run() {
             if (!process.env.GEMINI_API_KEY) {
@@ -104,31 +103,39 @@ jobs:
               }
             } catch (e) {
               console.error(e);
-              fs.writeFileSync('release_body.md', '## AI Error');
+              fs.writeFileSync('release_body.md', '## AI Error: ' + e.message);
             }
           }
 
           run();
           "@
           
-          # Ukládáme jako .cjs, aby Node.js ignoroval "type": "module" v package.json
-          Set-Content -Path "release-notes.cjs" -Value $scriptContent -Encoding UTF8
+          Set-Content -Path "release-notes.js" -Value $scriptContent -Encoding UTF8
 
       # --- KROK 2: SPUŠTĚNÍ SKRIPTU ---
       - name: Generate AI Notes
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TAG_NAME: ${{ github.ref_name }}
-        run: node release-notes.cjs
+        run: node release-notes.js
 
-      - name: Read Release Notes
-        id: read_notes
+      # --- KROK 3: PŘIPRAVIT FINÁLNÍ TEXT (AI + PATA) ---
+      - name: Prepare Release Body
         shell: powershell
         run: |
-          $notes = Get-Content release_body.md -Raw
-          # Escape multiline string for GitHub Actions output
-          $notes = $notes -replace '%','%25' -replace '\n','%0A' -replace '\r','%0D'
-          echo "summary=$notes" >> $env:GITHUB_OUTPUT
+          $footer = @"
+          
+          ---
+          
+          ### 📦 Installation
+          1. Download ZIP
+          2. Run `lfs-live-map-radio.exe`
+          3. In LFS: `/insim 29999`
+          4. Open browser: `http://localhost:3000`
+          "@
+          
+          # Připojíme patičku k AI textu
+          Add-Content -Path release_body.md -Value $footer
 
       - name: Verify executable
         run: |
@@ -153,15 +160,6 @@ jobs:
         with:
           files: release/LFS-LiveMap-Radio-${{ github.ref_name }}.zip
           generate_release_notes: false 
-          body: |
-            ${{ steps.read_notes.outputs.summary }}
-            
-            ---
-            
-            ### 📦 Installation
-            1. Download ZIP
-            2. Run `lfs-live-map-radio.exe`
-            3. In LFS: `/insim 29999`
-            4. Open browser: `http://localhost:3000`
+          body_path: release_body.md   # <--- TOTO JE TA HLAVNÍ OPRAVA
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
