@@ -4,7 +4,7 @@ Live For Speed InSim aplikace kombinující real-time mapu všech hráčů na se
 
 ## 📦 Releases
 
-Stáhni si poslední verzi z [Releases](https://github.com/YOUR_USERNAME/lfs-live-map-radio/releases) - obsahuje standalone EXE bez nutnosti instalace Node.js!
+Stáhni si poslední verzi z [Releases](https://github.com/VlastikYoutubeKo/lfs-lmar/releases) - obsahuje standalone EXE bez nutnosti instalace Node.js!
 
 ## ✨ Funkce
 
@@ -14,11 +14,11 @@ Stáhni si poslední verzi z [Releases](https://github.com/YOUR_USERNAME/lfs-liv
 - **InSim GUI** - Ovládání přímo v LFS
 - **Metadata** - Zobrazení aktuálně hrající skladby
 - **Multi-jazyčnost** - Angličtina / Čeština
-- **Sledování hráčů** - Klikni na hráče v seznamu pro automatické sledování kamery
+- **Sledování hráčů** - Klikni na hráče v seznamu pro automatické sledování
 
 ## 🚀 Rychlý start (EXE verze)
 
-1. **Stáhni poslední release** z [Releases](https://github.com/YOUR_USERNAME/lfs-live-map-radio/releases)
+1. **Stáhni poslední release** z [Releases](https://github.com/VlastikYoutubeKo/lfs-lmar/releases)
 2. **Rozbal ZIP** do libovolné složky
 3. **Spusť `lfs-live-map-radio.exe`** (nebo `START.bat`)
 4. **V LFS zadej:** `/insim 29999`
@@ -32,7 +32,7 @@ Stáhni si poslední verzi z [Releases](https://github.com/YOUR_USERNAME/lfs-liv
 
 ```bash
 # 1. Klonuj repo
-git clone https://github.com/YOUR_USERNAME/lfs-live-map-radio.git
+git clone https://github.com/VlastikYoutubeKo/lfs-lmar.git
 cd lfs-live-map-radio
 
 # 2. Instaluj dependencies
@@ -198,8 +198,8 @@ Pull requests vítány! Pro větší změny otevři nejprve issue.
 
 ## 📧 Kontakt
 
-- GitHub Issues: [Report Bug](https://github.com/YOUR_USERNAME/lfs-live-map-radio/issues)
-- LFS Forum: [Discussion Thread](#)
+- GitHub Issues: [Report Bug](https://github.com/VlastikYoutubeKo/lfs-lmar/issues)
+- Discord: @mxnticek
 
 ## 🙏 Acknowledgments
 
