@@ -14,19 +14,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js
+      - name: Setup Node.js 21+
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '21'
       
       - name: Install dependencies
         run: npm install
       
-      - name: Install pkg globally
-        run: npm install -g pkg
-      
-      - name: Build executable
+      - name: Build executable with SEA
         run: npm run build
+      
+      - name: Verify executable
+        run: |
+          if (Test-Path "dist\lfs-live-map-radio.exe") {
+            Write-Host "✓ Executable created successfully"
+            $size = (Get-Item "dist\lfs-live-map-radio.exe").Length / 1MB
+            Write-Host "  Size: $([math]::Round($size, 2)) MB"
+          } else {
+            Write-Error "Executable not found!"
+            exit 1
+          }
+        shell: powershell
       
       - name: Create release archive
         run: |
@@ -48,5 +57,28 @@ jobs:
         with:
           files: release/LFS-LiveMap-Radio-${{ github.ref_name }}.zip
           generate_release_notes: true
+          body: |
+            ## 🚀 LFS Live Map + Radio - Release ${{ github.ref_name }}
+            
+            **Built with Node.js Single Executable Application (SEA)**
+            
+            ### 📦 Installation:
+            1. Download and extract ZIP
+            2. Run `lfs-live-map-radio.exe`
+            3. In LFS: `/insim 29999`
+            4. Open browser: `http://localhost:3000`
+            
+            ### ✨ Features:
+            - Live map with 9 LFS tracks
+            - Internet radio (30,000+ stations)
+            - InSim GUI controls
+            - Multi-language support (EN/CZ)
+            
+            ### 📋 Requirements:
+            - Windows 10/11 x64
+            - MPV or VLC (for radio playback)
+            
+            ### 🐛 Issues?
+            Report bugs: https://github.com/${{ github.repository }}/issues
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

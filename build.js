@@ -1,4 +1,4 @@
-// build.js - Main build script for creating standalone EXE
+// build-sea.js - Native Node.js Single Executable Application builder
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -8,7 +8,7 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ANSI Colors for logging
+// ANSI Colors
 const colors = {
   reset: '\x1b[0m',
   red: '\x1b[31m',
@@ -36,10 +36,10 @@ function error(msg) {
 async function main() {
   try {
     log('\n============================================================', 'cyan');
-    log('   LFS Live Map + Radio - Build Process', 'cyan');
+    log('   LFS Live Map + Radio - Native SEA Build', 'cyan');
     log('============================================================\n', 'cyan');
 
-    // 1. Clean old build
+    // 1. Clean
     step('Cleaning old build...');
     if (fs.existsSync('dist')) {
       fs.rmSync('dist', { recursive: true, force: true });
@@ -47,156 +47,126 @@ async function main() {
     fs.mkdirSync('dist', { recursive: true });
     success('Old build cleaned');
 
-    // 2. Create asset manifest
-    step('Creating asset manifest...');
-    const assets = {
-      public: [],
-      root: []
+    // 2. Create SEA config
+    step('Creating SEA configuration...');
+    const seaConfig = {
+      main: 'server.js',
+      output: 'sea-prep.blob',
+      disableExperimentalSEAWarning: true,
+      useSnapshot: false,
+      useCodeCache: false, // Must be false for cross-platform
+      assets: {}
     };
 
-    // Scan public directory
-    if (fs.existsSync('public')) {
-      const scanDir = (dir, base = '') => {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        entries.forEach(entry => {
-          const fullPath = path.join(dir, entry.name);
-          const relativePath = path.join(base, entry.name);
-          
-          if (entry.isDirectory()) {
-            scanDir(fullPath, relativePath);
-          } else {
-            assets.public.push(relativePath.replace(/\\/g, '/'));
-          }
-        });
-      };
-      scanDir('public');
+    // Add all public files as assets
+    function addAssets(dir, prefix = '') {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      entries.forEach(entry => {
+        const fullPath = path.join(dir, entry.name);
+        const assetKey = path.join(prefix, entry.name).replace(/\\/g, '/');
+        
+        if (entry.isDirectory()) {
+          addAssets(fullPath, assetKey);
+        } else {
+          seaConfig.assets[assetKey] = fullPath;
+        }
+      });
     }
 
-    // Root files to include
-    const rootFiles = [
-      'radio_config.json',
-      'track_names.js',
-      'radio_browser.js',
-      'abradia_api.js',
-      'metadata_providers.js'
-    ];
+    // Add public directory
+    if (fs.existsSync('public')) {
+      addAssets('public', 'public');
+    }
 
+    // Add root files
+    const rootFiles = ['radio_config.json', 'track_names.js', 'radio_browser.js', 'abradia_api.js', 'metadata_providers.js'];
     rootFiles.forEach(file => {
       if (fs.existsSync(file)) {
-        assets.root.push(file);
+        seaConfig.assets[file] = file;
       }
     });
 
-    fs.writeFileSync('dist/assets.json', JSON.stringify(assets, null, 2));
-    success(`Asset manifest created (${assets.public.length + assets.root.length} files)`);
+    fs.writeFileSync('sea-config.json', JSON.stringify(seaConfig, null, 2));
+    success(`SEA config created (${Object.keys(seaConfig.assets).length} assets)`);
 
-    // 3. Copy necessary files to dist
-    step('Copying assets to dist...');
-    
-    // Copy public directory
-    if (fs.existsSync('public')) {
-      fs.cpSync('public', 'dist/public', { recursive: true });
-      success('Public directory copied');
+    // 3. Generate blob
+    step('Generating SEA blob...');
+    execSync('node --experimental-sea-config sea-config.json', { stdio: 'inherit' });
+    success('SEA blob generated');
+
+    // 4. Copy node executable
+    step('Creating executable...');
+    const isWindows = process.platform === 'win32';
+    const exeName = isWindows ? 'lfs-live-map-radio.exe' : 'lfs-live-map-radio';
+    const distExe = path.join('dist', exeName);
+
+    if (isWindows) {
+      fs.copyFileSync(process.execPath, distExe);
+    } else {
+      execSync(`cp $(command -v node) ${distExe}`);
+    }
+    success('Executable copied');
+
+    // 5. Remove signature (Windows/macOS)
+    if (process.platform === 'darwin') {
+      step('Removing signature (macOS)...');
+      execSync(`codesign --remove-signature ${distExe}`);
+      success('Signature removed');
     }
 
-    // Copy root files
+    // 6. Inject blob
+    step('Injecting blob into executable...');
+    const postjectCmd = isWindows 
+      ? `npx postject ${distExe} NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2`
+      : process.platform === 'darwin'
+        ? `npx postject ${distExe} NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA`
+        : `npx postject ${distExe} NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2`;
+
+    execSync(postjectCmd, { stdio: 'inherit' });
+    success('Blob injected');
+
+    // 7. Sign (macOS)
+    if (process.platform === 'darwin') {
+      step('Signing executable (macOS)...');
+      execSync(`codesign --sign - ${distExe}`);
+      success('Executable signed');
+    }
+
+    // 8. Copy assets to dist
+    step('Copying assets...');
+    if (fs.existsSync('public')) {
+      fs.cpSync('public', 'dist/public', { recursive: true });
+    }
     rootFiles.forEach(file => {
       if (fs.existsSync(file)) {
         fs.copyFileSync(file, `dist/${file}`);
       }
     });
-    success('Root files copied');
+    success('Assets copied');
 
-    // Copy START.bat
-    if (fs.existsSync('START.bat')) {
-      fs.copyFileSync('START.bat', 'dist/START.bat');
-    }
+    // 9. Cleanup
+    step('Cleaning temporary files...');
+    fs.unlinkSync('sea-config.json');
+    fs.unlinkSync('sea-prep.blob');
+    success('Cleanup complete');
 
-    // 4. Build EXE with pkg
-    step('Building executable with pkg...');
-    log('This may take a few minutes on first run...', 'yellow');
-    
-    try {
-      execSync('pkg . --out-path dist --targets node20-win-x64 --compress Brotli', {
-        stdio: 'inherit',
-        cwd: __dirname
-      });
-      success('Executable built successfully');
-    } catch (e) {
-      error('pkg build failed');
-      throw e;
-    }
-
-    // 5. Rename executable
-    step('Finalizing...');
-    if (fs.existsSync('dist/lfs-live-map-radio.exe')) {
-      // EXE already has correct name
-      success('Executable ready: lfs-live-map-radio.exe');
-    } else if (fs.existsSync('dist/server.exe')) {
-      fs.renameSync('dist/server.exe', 'dist/lfs-live-map-radio.exe');
-      success('Executable renamed: lfs-live-map-radio.exe');
-    }
-
-    // 6. Create README for dist
-    const readme = `# LFS Live Map + Radio - Standalone Build
-
-## Jak použít:
-
-1. **Spuštění aplikace:**
-   - Spusť \`lfs-live-map-radio.exe\`
-   - Nebo použij \`START.bat\` pro uživatelsky přívětivější spuštění
-
-2. **Připojení k LFS:**
-   - V LFS zadej: \`/insim 29999\`
-   - Nebo nastav InSim v \`cfg.txt\`: \`InSimPort=29999\`
-
-3. **Přístup k mapě:**
-   - Otevři prohlížeč: \`http://localhost:3000\`
-   - Pro radio přehrávač: \`http://localhost:3000/radio.html\`
-
-4. **Radio ovládání:**
-   - V LFS stiskni ikonu [R] v pravém horním rohu
-   - Nebo zadej: \`/o gui\` pro obnovení GUI
-
-## Požadavky:
-
-- **MPV nebo VLC přehrávač** (pro funkci rádia)
-  - MPV: \`choco install mpv\`
-  - VLC: https://www.videolan.org/
-
-## Řešení problémů:
-
-- **Port už používán:** Zavři jiné programy na portech 3000, 3001, 29999
-- **Radio nefunguje:** Zkontroluj instalaci MPV/VLC
-- **GUI se nezobrazuje:** Zadej v LFS: \`/o gui\`
-
-## Soubory v balíčku:
-
-- \`lfs-live-map-radio.exe\` - Hlavní aplikace
-- \`public/\` - Web rozhraní a mapy tratí
-- \`radio_config.json\` - Konfigurace rádia
-- \`START.bat\` - Spouštěcí skript s kontrolami
-
----
-
-Build verze: ${new Date().toISOString()}
-`;
-
-    fs.writeFileSync('dist/README.txt', readme);
-    success('README created');
-
-    // 7. Run post-build processing
-    step('Running post-build processing...');
-    try {
-      const { default: postbuild } = await import('./postbuild.js');
-      // postbuild.js runs its own main(), so we just import it
-    } catch (e) {
-      log('Post-build processing skipped (optional)', 'yellow');
-    }
+    // 10. Summary
+    const stats = fs.statSync(distExe);
+    const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
 
     log('\n============================================================', 'green');
     log('   BUILD COMPLETED SUCCESSFULLY!', 'green');
     log('============================================================\n', 'green');
+
+    console.log(`${colors.cyan}Build Information:${colors.reset}`);
+    console.log(`  • Executable: ${distExe}`);
+    console.log(`  • Size: ${sizeMB} MB`);
+    console.log(`  • Assets: ${Object.keys(seaConfig.assets).length} files`);
+    console.log(`  • Platform: ${process.platform} (${process.arch})`);
+    console.log(`  • Node.js: ${process.version}`);
+    console.log(`\n${colors.yellow}Next steps:${colors.reset}`);
+    console.log(`  1. Test: cd dist && ./${exeName}`);
+    console.log(`  2. Distribute: Share the dist folder\n`);
 
   } catch (err) {
     log('\n============================================================', 'red');
