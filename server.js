@@ -1,4 +1,4 @@
-// LFS InSim Live Map + Radio Server - FINAL STABLE + MULTILANGUAGE
+// LFS InSim Live Map + Radio Server - TC API VERSION
 // Requires: npm install node-insim ws
 
 import { InSim } from 'node-insim';
@@ -28,39 +28,25 @@ const colors = {
   blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m'
 };
 
-// === LFS CODEPAGE SUPPORT ===
-const LFS_CODEPAGES = {
-  'L': { code: 1252, name: 'Latin 1' },
-  'G': { code: 1253, name: 'Greek' },
-  'C': { code: 1251, name: 'Cyrillic' },
-  'E': { code: 1250, name: 'Central Europe' },
-  'T': { code: 1254, name: 'Turkish' },
-  'B': { code: 1257, name: 'Baltic' },
-  'J': { code: 932,  name: 'Japanese' },
-  'S': { code: 936,  name: 'Simplified Chinese' },
-  'H': { code: 950,  name: 'Traditional Chinese' },
-  'K': { code: 949,  name: 'Korean' }
+// === TC API CONFIG ===
+const TC_API_BASE = 'https://world.city-driving.co.uk/api/v2/json';
+const TC_FLAGS = {
+    FLAG_CIVILIAN: 1,
+    FLAG_COP: 2,
+    FLAG_CHASED: 32,  // SUSPECT
+    FLAG_CHASING: 64  // COP IN CHASE
 };
 
+// === LFS CODEPAGE SUPPORT ===
+const CP1252_UTF8_MAP = { '\u0095': '•', '\u008B': '‹', '\u009B': '›', '\u0099': '™' };
 const SPECIAL_CHARS_MAP = {
   '•': { char: '•', codepoint: 0x2022, codepage: 'G', name: 'BULLET' },
   '○': { char: '○', codepoint: 0x25CB, codepage: 'J', name: 'WHITE CIRCLE' },
   '●': { char: '●', codepoint: 0x25CF, codepage: 'J', name: 'BLACK CIRCLE' },
   '★': { char: '★', codepoint: 0x2605, codepage: 'J', name: 'BLACK STAR' },
   '☆': { char: '☆', codepoint: 0x2606, codepage: 'J', name: 'WHITE STAR' },
-  '♪': { char: '♪', codepoint: 0x266A, codepage: 'G', name: 'EIGHTH NOTE' },
-  '♫': { char: '♫', codepoint: 0x266B, codepage: 'G', name: 'BEAMED EIGHTH NOTES' },
-  '█': { char: '█', codepoint: 0x2588, codepage: 'G', name: 'FULL BLOCK' },
-  '▓': { char: '▓', codepoint: 0x2593, codepage: 'G', name: 'DARK SHADE' },
-  '▒': { char: '▒', codepoint: 0x2592, codepage: 'G', name: 'MEDIUM SHADE' },
-  '░': { char: '░', codepoint: 0x2591, codepage: 'G', name: 'LIGHT SHADE' }
-};
-
-const CP1252_UTF8_MAP = {
-  '\u0095': '•',
-  '\u008B': '‹',
-  '\u009B': '›',
-  '\u0099': '™',
+  '›': { char: '›', codepoint: 0x203A, codepage: 'L', name: 'SINGLE RIGHT ANGLE QUOTATION' },
+  '‹': { char: '‹', codepoint: 0x2039, codepage: 'L', name: 'SINGLE LEFT ANGLE QUOTATION' }
 };
 
 function fixCP1252Encoding(text) {
@@ -89,6 +75,7 @@ function convertLFSText(text) {
       result += char; continue;
     }
     
+    // Fallback detection
     if (charCode >= 128 && charCode <= 255) {
       if (currentCodepage !== 'L') { result += '^L'; currentCodepage = 'L'; }
       result += char;
@@ -175,6 +162,13 @@ const OVERLAY_CLOSE = 195;
 
 // === STATE ===
 const playerStates = new Map(); 
+
+// === CHASE MANAGEMENT (VIA API) ===
+// activeChases: Map<SuspectPLID, Set<CopPLID>>
+const activeChases = new Map();
+let currentServerApiUrl = null;
+let apiUpdateTimer = null;
+
 let currentVolume = 50;
 let currentStation = null;
 let currentStationConfig = null;
@@ -222,6 +216,90 @@ function addToRecent(station) {
   saveConfig();
 }
 
+// === TC API LOGIC ===
+function detectTcServer(serverName) {
+    if (!serverName) return null;
+    const lower = serverName.toLowerCase();
+    
+    // Zkusíme detekovat server z názvu
+    if (lower.includes("one")) return `${TC_API_BASE}/status_one.json`;
+    if (lower.includes("two")) return `${TC_API_BASE}/status_two.json`;
+    if (lower.includes("three")) return `${TC_API_BASE}/status_three.json`;
+    if (lower.includes("four")) return `${TC_API_BASE}/status_four.json`;
+    
+    // Fallback pokud se název neshoduje přesně (např. testy)
+    return null;
+}
+
+async function updateChaseData() {
+    if (!currentServerApiUrl) return;
+
+    try {
+        const response = await fetch(currentServerApiUrl);
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        if (!data || !data.p) return;
+
+        // Resetovat chase mapu a postavit znovu z čistých dat
+        activeChases.clear();
+
+        // 1. Krok: Vytvořit mapování UCID -> PLID z dat API
+        // API vrací objekt 'p', kde klíč je UCID (string) a hodnota je objekt hráče
+        const ucidToPlid = new Map();
+        Object.values(data.p).forEach(player => {
+            ucidToPlid.set(player.u, player.p);
+        });
+
+        // 2. Krok: Najít podezřelé a policisty
+        Object.values(data.p).forEach(player => {
+            const flags = player.f;
+            const ucid = player.u;
+            const plid = player.p;
+
+            // Je to podezřelý? (FLAG_CHASED = 32)
+            if ((flags & TC_FLAGS.FLAG_CHASED) !== 0) {
+                if (!activeChases.has(plid)) {
+                    activeChases.set(plid, new Set());
+                }
+            }
+
+            // Je to policista v honičce? (FLAG_CHASING = 64)
+            if ((flags & TC_FLAGS.FLAG_CHASING) !== 0) {
+                // Ke komu patří? 'us' = UCID suspecta
+                const suspectUcid = player.us;
+                const suspectPlid = ucidToPlid.get(suspectUcid);
+
+                if (suspectPlid !== undefined) {
+                    if (!activeChases.has(suspectPlid)) {
+                        activeChases.set(suspectPlid, new Set());
+                    }
+                    activeChases.get(suspectPlid).add(plid);
+                }
+            }
+        });
+
+        // Debug výpis jen když se něco děje
+        if (activeChases.size > 0) {
+            // console.log(`[TC API] Active Chases: ${activeChases.size}`);
+        }
+
+    } catch (e) {
+        console.error(`[TC API] Error fetching status: ${e.message}`);
+    }
+}
+
+// Zjistí roli hráče v aktuálních honičkách (z dat API)
+function getPlayerRole(plid) {
+    if (activeChases.has(plid)) return 'SUSPECT';
+    
+    for (const cops of activeChases.values()) {
+        if (cops.has(plid)) return 'COP';
+    }
+    
+    return 'CIVILIAN';
+}
+
 // === MPV & AUDIO ===
 let MPV_PATH = null;
 let currentAudioProcess = null;
@@ -260,14 +338,19 @@ server.listen(MAP_WS_PORT, () => console.log(`${colors.cyan}[Web]${colors.reset}
 
 const wssMap = new WebSocketServer({ server });
 
+// Websocket connection (Map)
 wssMap.on('connection', (ws) => {
   console.log(`${colors.cyan}[Map WS]${colors.reset} Client connected`);
   const trackToSend = currentTrack || 'BL1';
   ws.send(JSON.stringify({ type: 'track', track: trackToSend, layout: currentLayout }));
   
-  const mapData = Array.from(cars.values()).map(c => ({
-    plid: c.plid, name: c.pname, x: c.x, y: c.y, z: c.z, speed: c.speed, heading: c.heading
-  }));
+  // Send neutral data initially (all civilians)
+  const mapData = Array.from(cars.values())
+      .filter(c => getPlayerRole(c.plid) === 'CIVILIAN') 
+      .map(c => ({
+          plid: c.plid, name: c.pname, x: c.x, y: c.y, z: c.z, speed: c.speed, heading: c.heading
+      }));
+      
   if (mapData.length > 0) ws.send(JSON.stringify({ type: 'positions', cars: mapData }));
 });
 
@@ -289,7 +372,6 @@ function startGuiWatchdog() {
         if (state) {
             renderUI(MY_UCID, state.state, state.searchResults, state.page);
         } else if (MY_UCID === 255) {
-            // Pokud stále čekáme na přihlášení, obnovujeme ikonu pro "všechny"
             playerStates.set(255, { state: 'icon', searchResults: [], page: 0 });
             renderUI(255, 'icon');
         }
@@ -441,9 +523,7 @@ function clearNowPlayingOverlay() {
 }
 
 function sendBtn(ucid, id, l, t, w, h, text, style, typeIn = 0) {
-    // Povolíme odeslání i na ID 255 (pro všechny, když nemáme identifikovaného hráče)
     if (ucid !== MY_UCID && ucid !== 255) return;
-    
     let finalStyle = style;
     if (typeIn > 0) finalStyle = style | ButtonStyle.ISB_CLICK;
     try { inSim.send(new IS_BTN({ ReqI: 1, UCID: ucid, ClickID: id, Inst: 0, BStyle: finalStyle, TypeIn: typeIn, L: l, T: t, W: w, H: h, Text: text })); } catch (e) {}
@@ -471,7 +551,6 @@ function updateVolumeButtonsOnly() {
 }
 
 function renderUI(ucid, requestedState, extraData = null, page = 0) {
-    // Povolit renderování i pro 255 (veřejné/čekací)
     if (ucid !== MY_UCID && ucid !== 255) return;
     
     const oldState = playerStates.get(ucid);
@@ -542,15 +621,15 @@ function broadcastRadioStatus(station, status, extra = null) {
   wssRadio.clients.forEach(c => { if(c.readyState===1) c.send(JSON.stringify(msg)); });
 }
 
-inSim.connect({ Host: '127.0.0.1', Port: 29999, IName: 'LiveMap', Flags: InSimFlags.ISF_MCI | InSimFlags.ISF_LOCAL, ReqI: IS_ISI_ReqI.SEND_VERSION, Interval: 250, Admin: '' });
+inSim.connect({ Host: '127.0.0.1', Port: 29999, IName: 'LiveMap', Flags: InSimFlags.ISF_MCI | InSimFlags.ISF_LOCAL | InSimFlags.ISF_MSO, ReqI: IS_ISI_ReqI.SEND_VERSION, Interval: 250, Admin: '' });
 
 inSim.on('connect', () => {
   console.log(`${colors.green}[InSim]${colors.reset} Connected.`);
   isInSimConnected = true;
   MY_UCID = 255;
   playerStates.clear();
+  activeChases.clear();
   
-  // Zobrazit ikonu pro "všechny" (255)
   playerStates.set(MY_UCID, { state: 'icon', searchResults: [], page: 0 });
   renderUI(MY_UCID, 'icon');
   console.log(`${colors.yellow}[System]${colors.reset} Waiting for user interaction (Click [R] button)...`);
@@ -564,6 +643,7 @@ inSim.on('connect', () => {
 
 inSim.on('disconnect', () => { 
     isInSimConnected = false; 
+    if (apiUpdateTimer) clearInterval(apiUpdateTimer);
     console.log(`${colors.red}[InSim]${colors.reset} Disconnected.`);
     cars.clear(); currentTrack = ''; currentLayout = '';
     wssMap.clients.forEach(client => { if (client.readyState === 1) client.send(JSON.stringify({ type: 'disconnect' })); });
@@ -571,7 +651,22 @@ inSim.on('disconnect', () => {
 
 inSim.on(PacketType.ISP_ISM, (p) => {
   console.log(`${colors.green}[Server]${colors.reset} Joined: ${p.HName || 'Local'}`);
+  
+  // Detekce API endpointu podle názvu serveru
+  currentServerApiUrl = detectTcServer(p.HName);
+  if (currentServerApiUrl) {
+      console.log(`${colors.cyan}[TC API]${colors.reset} Connected to API: ${currentServerApiUrl}`);
+      // Spustit pravidelný fetch každé 2s
+      if (apiUpdateTimer) clearInterval(apiUpdateTimer);
+      apiUpdateTimer = setInterval(updateChaseData, 2000);
+      updateChaseData(); // Hned poprvé
+  } else {
+      console.log(`${colors.yellow}[TC API]${colors.reset} Not a known TC server, API disabled.`);
+      if (apiUpdateTimer) clearInterval(apiUpdateTimer);
+  }
+
   cars.clear(); currentTrack = ''; currentLayout = '';
+  activeChases.clear();
   inSim.send(new IS_TINY({ ReqI: 1, SubT: TinyType.TINY_NPL }));
   inSim.send(new IS_TINY({ ReqI: 1, SubT: TinyType.TINY_SST }));
 });
@@ -592,30 +687,30 @@ inSim.on(PacketType.ISP_NCN, (p) => {
 
 inSim.on(PacketType.ISP_NPL, (p) => {
   const convertedName = convertLFSText(p.PName);
-  
   cars.set(p.PLID, {
     plid: p.PLID, ucid: p.UCID, pname: convertedName, plate: p.Plate, cname: p.CName, x: 0, y: 0, z: 0, speed: 0, heading: 0
   });
-
-  // ZDE JSME ODSTRANILI AUTOMATICKOU DETEKCI (byla nespolehlivá)
-  // Necháváme jen logování
   const playerType = p.UCID === MY_UCID ? '[YOU] ' : '';
   console.log(`${colors.green}[Player]${colors.reset} ${playerType}${p.PName} joined (PLID: ${p.PLID})`);
 });
 
 inSim.on(PacketType.ISP_PLL, (p) => {
   cars.delete(p.PLID);
+  if (activeChases.has(p.PLID)) activeChases.delete(p.PLID);
 });
 
 inSim.on(PacketType.ISP_TINY, (p) => {
   if (p.SubT === TinyType.TINY_MPE) {
     console.log(`${colors.yellow}[Server]${colors.reset} Left multiplayer server`);
+    if (apiUpdateTimer) clearInterval(apiUpdateTimer);
     cars.clear(); currentTrack = ''; currentLayout = '';
+    activeChases.clear();
     wssMap.clients.forEach(client => { if (client.readyState === 1) client.send(JSON.stringify({ type: 'server_left' })); });
   }
 });
 
 inSim.on(PacketType.ISP_MCI, (p) => {
+  // 1. Aktualizace pozic v paměti
   p.Info.forEach(carInfo => {
     const car = cars.get(carInfo.PLID);
     if (car) {
@@ -623,10 +718,59 @@ inSim.on(PacketType.ISP_MCI, (p) => {
       car.speed = carInfo.Speed / 327.68; car.heading = carInfo.Heading / 182.044;
     }
   });
-  const mapData = Array.from(cars.values()).map(c => ({ plid: c.plid, name: c.pname, x: c.x, y: c.y, z: c.z, speed: c.speed, heading: c.heading }));
+
+  // 2. Logika viditelnosti pro lokálního hráče
+  
+  // Zjistíme PLID lokálního hráče
+  let myPlid = null;
+  for (const car of cars.values()) {
+      if (car.ucid === MY_UCID) {
+          myPlid = car.plid;
+          break;
+      }
+  }
+
+  // Zjistíme roli lokálního hráče z API dat
+  let myRole = 'CIVILIAN';
+  if (myPlid !== null) {
+      myRole = getPlayerRole(myPlid);
+  }
+
+  // 3. Filtrujeme auta pro odeslání na webovou mapu
+  const mapData = Array.from(cars.values()).filter(targetCar => {
+      const targetRole = getPlayerRole(targetCar.plid);
+      
+      // Civilisty vidí každý
+      if (targetRole === 'CIVILIAN') return true;
+      
+      // Pokud se neúčastním honičky (jsem civilista), nevidím nikoho z honičky
+      if (myRole === 'CIVILIAN') return false;
+      
+      // Pokud jsem Policista:
+      if (myRole === 'COP') {
+          // Vidím ostatní policisty
+          if (targetRole === 'COP') return true;
+          // NEVIDÍM podezřelé
+          if (targetRole === 'SUSPECT') return false;
+      }
+      
+      // Pokud jsem Podezřelý:
+      if (myRole === 'SUSPECT') {
+          // NEVIDÍM policisty
+          if (targetRole === 'COP') return false;
+          // Vidím sebe (a případné spolupachatele)
+          if (targetRole === 'SUSPECT') return true;
+      }
+      
+      return false; // Fallback
+  }).map(c => ({
+      plid: c.plid, name: c.pname, x: c.x, y: c.y, z: c.z, speed: c.speed, heading: c.heading
+  }));
+  
   wssMap.clients.forEach(client => { if (client.readyState === 1) client.send(JSON.stringify({ type: 'positions', cars: mapData })); });
 });
 
+// GUI Logic (Nezměněno, jen MSO příkazy pro reset)
 inSim.on(PacketType.ISP_MSO, (p) => {
     if (p.UserType === UserType.MSO_O) {
         const msg = p.Msg; 
@@ -658,30 +802,20 @@ inSim.on(PacketType.ISP_MSO, (p) => {
 });
 
 inSim.on(PacketType.ISP_BTC, async (p) => {
-    // --- KLÍČOVÁ OPRAVA: PŘIHLÁŠENÍ PRVNÍM KLIKNUTÍM ---
     if (MY_UCID === 255) {
         console.log(`${colors.cyan}[System]${colors.reset} 👋 User interaction detected! Identifying as UCID: ${p.UCID}`);
-        
-        // Přenést stav z ID 255 (veřejný) na konkrétní ID uživatele
         const oldState = playerStates.get(255);
         if (oldState) {
             playerStates.set(p.UCID, oldState);
             playerStates.delete(255);
         }
-        
-        // Smazat "duchovní" tlačítka pro ID 255
         clearGuiButtons(255);
-        
-        // Nastavit identitu
         MY_UCID = p.UCID;
-        
-        // Okamžitě reagovat na kliknutí
         if (p.ClickID === 239) {
              renderUI(MY_UCID, 'main');
              return; 
         }
     }
-    // ----------------------------------------------------
 
     if (p.UCID !== MY_UCID) return;
     const state = playerStates.get(MY_UCID);
