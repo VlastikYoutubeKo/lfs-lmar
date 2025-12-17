@@ -28,11 +28,11 @@ jobs:
       - name: Verify executable
         run: |
           if (Test-Path "dist\lfs-live-map-radio.exe") {
-            Write-Host "✓ Executable created successfully"
+            Write-Host "Executable created successfully"
             $size = (Get-Item "dist\lfs-live-map-radio.exe").Length / 1MB
-            Write-Host "  Size: $([math]::Round($size, 2)) MB"
+            Write-Host "Size: $([math]::Round($size, 2)) MB"
           } else {
-            Write-Error "Executable not found!"
+            Write-Error "Executable not found"
             exit 1
           }
         shell: powershell
