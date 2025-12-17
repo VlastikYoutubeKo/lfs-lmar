@@ -62,7 +62,7 @@ jobs:
             // 3. Prompt pro AI
             const prompt = `
             You are a Release Manager for a software called "LFS Live Map + Radio".
-            Create a cool, structured release note for version ${process.env.TAG_NAME}.
+            Create a structured release note for version ${process.env.TAG_NAME}.
             
             Here are the changes since the last version:
             
@@ -73,12 +73,14 @@ jobs:
             ${diff}
             
             Instructions:
-            1. Start with a catchy header including the version.
-            2. Summarize the biggest changes based on the commits and files touched.
+            1. Start with a header including the version.
+            2. Summarize the changes based on the commits and files touched.
             3. Group changes into sections: 🚀 New Features, 🐛 Bug Fixes, 🛠️ Improvements (if applicable).
             4. If the code suggests changes to the API (TC API logic) or server logic (chase logic), mention it specifically.
-            5. Keep it engaging for users.
-            6. Use Markdown format.
+            5. Use Markdown format.
+
+            Also, include links to issues. They are at github.com/vlastikyoutubeko/lfs-lmar/issues.
+            
             `;
 
             // 4. Volání Google Gemini API (REST)
