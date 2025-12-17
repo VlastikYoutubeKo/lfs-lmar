@@ -57,7 +57,8 @@ jobs:
             // 2. Pokus o získání historie podle tagů
             try {
               // Získáme předchozí tag
-              const prevTag = execSync('git describe --tags --abbrev=0 HEAD^ 2>$null').toString().trim();
+              // Odstraněno '2>$null' (PowerShell syntax), execSync používá cmd.exe na Windows runneru
+              const prevTag = execSync('git describe --tags --abbrev=0 HEAD^').toString().trim();
               console.log(`Previous Tag found: ${prevTag}`);
               
               const range = `${prevTag}..HEAD`;
@@ -68,7 +69,6 @@ jobs:
             }
 
             // 3. FALLBACK (ZÁCHRANA): Pokud je historie prázdná, vezmeme posledních 50 commitů "natvrdo"
-            // Toto řeší problém, kdy AI generovala obecný text, protože nedostala žádná data.
             if (!commits || commits.trim().length === 0) {
                 console.log("⚠️ Commits empty. Falling back to last 50 commits directly.");
                 commits = execSync('git log -n 50 --pretty=format:"- %s (%an)"').toString();
@@ -110,7 +110,7 @@ jobs:
                 return "## ⚠️ AI Summary Unavailable\nCheck commits manually.";
             }
 
-            // Používáme model, který jsi specifikoval (gemini-3-flash-preview)
+            // POUŽITÍ TVÉHO MODELU (gemini-3-flash-preview)
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
             const requestBody = {
