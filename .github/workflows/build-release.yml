@@ -30,7 +30,7 @@ jobs:
       - name: Build executable with SEA
         run: npm run build
       
-      # --- KROK 1: VYTVOŘENÍ JS SOUBORU (Obchází YAML syntax errory) ---
+      # --- KROK 1: VYTVOŘENÍ JS SOUBORU (.cjs kvůli "type": "module") ---
       - name: Create Release Notes Script
         shell: powershell
         run: |
@@ -76,7 +76,7 @@ jobs:
             '2. Group by: New Features, Bug Fixes, Improvements.\n' +
             '3. Mention TC API logic or Chase logic specifically if found.\n' +
             '4. Use Markdown.\n' +
-            '5. Link issues: github.com/vlastikyoutubeko/lfs-lmar/issues\n';
+            '5. Link issues: github.com/vlastikyoutubeko/lfs-lmar/issues\n6. Do not include anything else, like pretalk before markdown.';
 
           async function run() {
             if (!process.env.GEMINI_API_KEY) {
@@ -111,14 +111,15 @@ jobs:
           run();
           "@
           
-          Set-Content -Path "release-notes.js" -Value $scriptContent -Encoding UTF8
+          # Ukládáme jako .cjs, aby Node.js ignoroval "type": "module" v package.json
+          Set-Content -Path "release-notes.cjs" -Value $scriptContent -Encoding UTF8
 
       # --- KROK 2: SPUŠTĚNÍ SKRIPTU ---
       - name: Generate AI Notes
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TAG_NAME: ${{ github.ref_name }}
-        run: node release-notes.js
+        run: node release-notes.cjs
 
       - name: Read Release Notes
         id: read_notes
