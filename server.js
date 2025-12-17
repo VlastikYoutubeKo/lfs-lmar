@@ -1,5 +1,5 @@
-// LFS InSim Live Map + Radio Server - TC API VERSION
-// Requires: npm install node-insim ws
+// LFS InSim Live Map + Radio Server - PRODUCTION VERSION
+// Usage: node server.js [--cop] [--debug]
 
 import { InSim } from 'node-insim';
 import { WebSocketServer } from 'ws';
@@ -22,6 +22,10 @@ import {
   getAbradiaNowPlaying
 } from './abradia_api.js';
 
+// === SWITCHES ===
+const FORCE_COP_MODE = process.argv.includes('--cop');   // Forces local player to be COP (sees cops, hides suspects)
+const ENABLE_DEBUG = process.argv.includes('--debug');   // Shows verbose API logs
+
 // === ANSI COLORS ===
 const colors = {
   reset: '\x1b[0m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
@@ -30,12 +34,6 @@ const colors = {
 
 // === TC API CONFIG ===
 const TC_API_BASE = 'https://world.city-driving.co.uk/api/v2/json';
-const TC_FLAGS = {
-    FLAG_CIVILIAN: 1,
-    FLAG_COP: 2,
-    FLAG_CHASED: 32,  // SUSPECT
-    FLAG_CHASING: 64  // COP IN CHASE
-};
 
 // === LFS CODEPAGE SUPPORT ===
 const CP1252_UTF8_MAP = { '\u0095': '•', '\u008B': '‹', '\u009B': '›', '\u0099': '™' };
@@ -75,7 +73,6 @@ function convertLFSText(text) {
       result += char; continue;
     }
     
-    // Fallback detection
     if (charCode >= 128 && charCode <= 255) {
       if (currentCodepage !== 'L') { result += '^L'; currentCodepage = 'L'; }
       result += char;
@@ -164,7 +161,7 @@ const OVERLAY_CLOSE = 195;
 const playerStates = new Map(); 
 
 // === CHASE MANAGEMENT (VIA API) ===
-// activeChases: Map<SuspectPLID, Set<CopPLID>>
+// Klíč = Suspect UCID, Hodnota = Set(Cop UCIDs)
 const activeChases = new Map();
 let currentServerApiUrl = null;
 let apiUpdateTimer = null;
@@ -220,14 +217,10 @@ function addToRecent(station) {
 function detectTcServer(serverName) {
     if (!serverName) return null;
     const lower = serverName.toLowerCase();
-    
-    // Zkusíme detekovat server z názvu
     if (lower.includes("one")) return `${TC_API_BASE}/status_one.json`;
     if (lower.includes("two")) return `${TC_API_BASE}/status_two.json`;
     if (lower.includes("three")) return `${TC_API_BASE}/status_three.json`;
     if (lower.includes("four")) return `${TC_API_BASE}/status_four.json`;
-    
-    // Fallback pokud se název neshoduje přesně (např. testy)
     return null;
 }
 
@@ -236,52 +229,52 @@ async function updateChaseData() {
 
     try {
         const response = await fetch(currentServerApiUrl);
-        if (!response.ok) return;
+        if (!response.ok) {
+            if (ENABLE_DEBUG) console.log(`${colors.red}[TC API]${colors.reset} HTTP Error: ${response.status}`);
+            return;
+        }
         
         const data = await response.json();
-        if (!data || !data.p) return;
+        if (!data) return;
 
-        // Resetovat chase mapu a postavit znovu z čistých dat
         activeChases.clear();
 
-        // 1. Krok: Vytvořit mapování UCID -> PLID z dat API
-        // API vrací objekt 'p', kde klíč je UCID (string) a hodnota je objekt hráče
-        const ucidToPlid = new Map();
-        Object.values(data.p).forEach(player => {
-            ucidToPlid.set(player.u, player.p);
-        });
-
-        // 2. Krok: Najít podezřelé a policisty
-        Object.values(data.p).forEach(player => {
-            const flags = player.f;
-            const ucid = player.u;
-            const plid = player.p;
-
-            // Je to podezřelý? (FLAG_CHASED = 32)
-            if ((flags & TC_FLAGS.FLAG_CHASED) !== 0) {
-                if (!activeChases.has(plid)) {
-                    activeChases.set(plid, new Set());
-                }
-            }
-
-            // Je to policista v honičce? (FLAG_CHASING = 64)
-            if ((flags & TC_FLAGS.FLAG_CHASING) !== 0) {
-                // Ke komu patří? 'us' = UCID suspecta
-                const suspectUcid = player.us;
-                const suspectPlid = ucidToPlid.get(suspectUcid);
-
-                if (suspectPlid !== undefined) {
-                    if (!activeChases.has(suspectPlid)) {
-                        activeChases.set(suspectPlid, new Set());
+        // Parsování 'cs' pole (Chase Status)
+        if (data.cs && Array.isArray(data.cs)) {
+            data.cs.forEach(chase => {
+                // 1. Zpracovat Podezřelého (su)
+                if (chase.su && chase.su.u !== undefined) {
+                    const suspectUcid = Number(chase.su.u);
+                    
+                    if (!activeChases.has(suspectUcid)) {
+                        activeChases.set(suspectUcid, new Set());
                     }
-                    activeChases.get(suspectPlid).add(plid);
+                    
+                    // 2. Zpracovat Policisty (co)
+                    if (chase.co && Array.isArray(chase.co)) {
+                        chase.co.forEach(cop => {
+                            if (cop.u !== undefined) {
+                                const copUcid = Number(cop.u);
+                                activeChases.get(suspectUcid).add(copUcid);
+                            }
+                        });
+                    }
                 }
-            }
-        });
+            });
+        }
 
-        // Debug výpis jen když se něco děje
-        if (activeChases.size > 0) {
-            // console.log(`[TC API] Active Chases: ${activeChases.size}`);
+        // DEBUG LOGOVÁNÍ (jen pokud je zapnuto --debug)
+        if (ENABLE_DEBUG) {
+            const suspects = Array.from(activeChases.keys());
+            if (suspects.length > 0) {
+                console.log(`${colors.magenta}[DEBUG API]${colors.reset} Suspect UCIDs in 'cs': [ ${suspects.join(', ')} ]`);
+                suspects.forEach(s_ucid => {
+                    const cops = activeChases.get(s_ucid);
+                    let sName = `Unknown (UCID ${s_ucid})`;
+                    for(const c of cars.values()) { if(c.ucid === s_ucid) sName = c.pname; }
+                    console.log(`   -> Chase: ${sName} | Cops: ${cops.size}`);
+                });
+            }
         }
 
     } catch (e) {
@@ -289,12 +282,19 @@ async function updateChaseData() {
     }
 }
 
-// Zjistí roli hráče v aktuálních honičkách (z dat API)
 function getPlayerRole(plid) {
-    if (activeChases.has(plid)) return 'SUSPECT';
+    const numericPlid = Number(plid); 
+    const car = cars.get(numericPlid);
+    if (!car) return 'CIVILIAN';
     
+    const ucid = Number(car.ucid);
+
+    // Je to suspect?
+    if (activeChases.has(ucid)) return 'SUSPECT';
+    
+    // Je to cop?
     for (const cops of activeChases.values()) {
-        if (cops.has(plid)) return 'COP';
+        if (cops.has(ucid)) return 'COP';
     }
     
     return 'CIVILIAN';
@@ -315,6 +315,9 @@ MPV_PATH = (function() {
     return isCommandAvailable('mpv') ? 'mpv' : null;
 })();
 console.log(`${colors.cyan}[Audio]${colors.reset}`, MPV_PATH ? `${colors.green}OK${colors.reset}` : `${colors.red}ERROR MPV MISSING${colors.reset}`);
+
+if (FORCE_COP_MODE) console.log(`${colors.magenta}[INFO]${colors.reset} Forced COP mode active (--cop)`);
+if (ENABLE_DEBUG) console.log(`${colors.magenta}[INFO]${colors.reset} Debug logs active (--debug)`);
 
 loadConfig();
 
@@ -338,13 +341,11 @@ server.listen(MAP_WS_PORT, () => console.log(`${colors.cyan}[Web]${colors.reset}
 
 const wssMap = new WebSocketServer({ server });
 
-// Websocket connection (Map)
 wssMap.on('connection', (ws) => {
-  console.log(`${colors.cyan}[Map WS]${colors.reset} Client connected`);
+  if (ENABLE_DEBUG) console.log(`${colors.cyan}[Map WS]${colors.reset} Client connected`);
   const trackToSend = currentTrack || 'BL1';
   ws.send(JSON.stringify({ type: 'track', track: trackToSend, layout: currentLayout }));
   
-  // Send neutral data initially (all civilians)
   const mapData = Array.from(cars.values())
       .filter(c => getPlayerRole(c.plid) === 'CIVILIAN') 
       .map(c => ({
@@ -632,8 +633,9 @@ inSim.on('connect', () => {
   
   playerStates.set(MY_UCID, { state: 'icon', searchResults: [], page: 0 });
   renderUI(MY_UCID, 'icon');
-  console.log(`${colors.yellow}[System]${colors.reset} Waiting for user interaction (Click [R] button)...`);
+  if (ENABLE_DEBUG) console.log(`${colors.yellow}[System]${colors.reset} Waiting for user interaction (Click [R] button)...`);
 
+  inSim.send(new IS_TINY({ ReqI: 1, SubT: TinyType.TINY_ISM })); 
   inSim.send(new IS_TINY({ ReqI: 1, SubT: TinyType.TINY_NPL }));
   inSim.send(new IS_TINY({ ReqI: 1, SubT: TinyType.TINY_SST })); 
   inSim.send(new IS_TINY({ ReqI: 1, SubT: TinyType.TINY_NCN }));
@@ -655,13 +657,13 @@ inSim.on(PacketType.ISP_ISM, (p) => {
   // Detekce API endpointu podle názvu serveru
   currentServerApiUrl = detectTcServer(p.HName);
   if (currentServerApiUrl) {
-      console.log(`${colors.cyan}[TC API]${colors.reset} Connected to API: ${currentServerApiUrl}`);
+      if (ENABLE_DEBUG) console.log(`${colors.cyan}[TC API]${colors.reset} Connected to API: ${currentServerApiUrl}`);
       // Spustit pravidelný fetch každé 2s
       if (apiUpdateTimer) clearInterval(apiUpdateTimer);
       apiUpdateTimer = setInterval(updateChaseData, 2000);
       updateChaseData(); // Hned poprvé
   } else {
-      console.log(`${colors.yellow}[TC API]${colors.reset} Not a known TC server, API disabled.`);
+      if (ENABLE_DEBUG) console.log(`${colors.yellow}[TC API]${colors.reset} Not a known TC server, API disabled.`);
       if (apiUpdateTimer) clearInterval(apiUpdateTimer);
   }
 
@@ -682,7 +684,7 @@ inSim.on(PacketType.ISP_STA, (p) => {
 });
 
 inSim.on(PacketType.ISP_NCN, (p) => {
-  console.log(`${colors.cyan}[Connection]${colors.reset} New connection: ${p.UName} (UCID: ${p.UCID})`);
+  if (ENABLE_DEBUG) console.log(`${colors.cyan}[Connection]${colors.reset} New connection: ${p.UName} (UCID: ${p.UCID})`);
 });
 
 inSim.on(PacketType.ISP_NPL, (p) => {
@@ -691,12 +693,11 @@ inSim.on(PacketType.ISP_NPL, (p) => {
     plid: p.PLID, ucid: p.UCID, pname: convertedName, plate: p.Plate, cname: p.CName, x: 0, y: 0, z: 0, speed: 0, heading: 0
   });
   const playerType = p.UCID === MY_UCID ? '[YOU] ' : '';
-  console.log(`${colors.green}[Player]${colors.reset} ${playerType}${p.PName} joined (PLID: ${p.PLID})`);
+  if (ENABLE_DEBUG) console.log(`${colors.green}[Player]${colors.reset} ${playerType}${p.PName} joined (PLID: ${p.PLID})`);
 });
 
 inSim.on(PacketType.ISP_PLL, (p) => {
   cars.delete(p.PLID);
-  if (activeChases.has(p.PLID)) activeChases.delete(p.PLID);
 });
 
 inSim.on(PacketType.ISP_TINY, (p) => {
@@ -720,8 +721,6 @@ inSim.on(PacketType.ISP_MCI, (p) => {
   });
 
   // 2. Logika viditelnosti pro lokálního hráče
-  
-  // Zjistíme PLID lokálního hráče
   let myPlid = null;
   for (const car of cars.values()) {
       if (car.ucid === MY_UCID) {
@@ -730,9 +729,10 @@ inSim.on(PacketType.ISP_MCI, (p) => {
       }
   }
 
-  // Zjistíme roli lokálního hráče z API dat
   let myRole = 'CIVILIAN';
-  if (myPlid !== null) {
+  if (FORCE_COP_MODE) {
+      myRole = 'COP';
+  } else if (myPlid !== null) {
       myRole = getPlayerRole(myPlid);
   }
 
@@ -758,11 +758,11 @@ inSim.on(PacketType.ISP_MCI, (p) => {
       if (myRole === 'SUSPECT') {
           // NEVIDÍM policisty
           if (targetRole === 'COP') return false;
-          // Vidím sebe (a případné spolupachatele)
+          // Vidím sebe
           if (targetRole === 'SUSPECT') return true;
       }
       
-      return false; // Fallback
+      return false; 
   }).map(c => ({
       plid: c.plid, name: c.pname, x: c.x, y: c.y, z: c.z, speed: c.speed, heading: c.heading
   }));
@@ -776,7 +776,7 @@ inSim.on(PacketType.ISP_MSO, (p) => {
         const msg = p.Msg; 
         if (msg === 'gui') {
             if (MY_UCID === 255 || MY_UCID !== p.UCID) {
-                console.log(`${colors.cyan}[System]${colors.reset} Manual override for UCID: ${p.UCID}`);
+                if(ENABLE_DEBUG) console.log(`${colors.cyan}[System]${colors.reset} Manual override for UCID: ${p.UCID}`);
                 const oldState = playerStates.get(MY_UCID);
                 if (oldState) {
                     playerStates.set(p.UCID, oldState);
@@ -803,7 +803,7 @@ inSim.on(PacketType.ISP_MSO, (p) => {
 
 inSim.on(PacketType.ISP_BTC, async (p) => {
     if (MY_UCID === 255) {
-        console.log(`${colors.cyan}[System]${colors.reset} 👋 User interaction detected! Identifying as UCID: ${p.UCID}`);
+        if(ENABLE_DEBUG) console.log(`${colors.cyan}[System]${colors.reset} 👋 User interaction detected! Identifying as UCID: ${p.UCID}`);
         const oldState = playerStates.get(255);
         if (oldState) {
             playerStates.set(p.UCID, oldState);
