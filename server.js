@@ -381,8 +381,25 @@ function startGuiWatchdog() {
             renderUI(255, 'icon');
         }
         
-        if (isOverlayVisible && currentStation) {
-            showNowPlayingOverlay(lastNowPlayingInfo);
+        // ✅ Obnovit overlay tlačítka (BEZ resetu tickeru)
+        if (isOverlayVisible && currentStation && overlayArtistParts.length > 0) {
+            const L = 60; const T = 160;
+            const W = 80;
+            const totalHeight = currentProgram ? 20 : 14;
+            
+            // Překreslit background a header (neměnné části)
+            sendBtn(MY_UCID, OVERLAY_BG, L, T, W, totalHeight, '', ButtonStyle.ISB_DARK);
+            sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W, 4, t('OVERLAY_HEADER'), ButtonStyle.ISB_DARK);
+            sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+            
+            // Překreslit aktuální text (ticker si udržuje svůj index)
+            updateOverlayText();
+            
+            // Překreslit program (pokud existuje)
+            if (currentProgram) {
+                let prog = currentProgram.name.substring(0, 40);
+                sendBtn(MY_UCID, OVERLAY_PROGRAM, L, T+14, W, 5, `${t('OVERLAY_PROGRAM')}^7${prog}`, ButtonStyle.ISB_DARK);
+            }
         }
     }, 3000); 
 }
@@ -490,10 +507,11 @@ function updateOverlayText() {
     
     // Zobraz aktuální část artist
     const artistPart = overlayArtistParts[overlayTickerIndex % overlayArtistParts.length] || "";
-    sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, 80, 5, `^2${artistPart}`, ButtonStyle.ISB_DARK);
-    
-    // Zobraz aktuální část song
     const songPart = overlaySongParts[overlayTickerIndex % overlaySongParts.length] || "";
+    
+    // console.log(`${colors.cyan}[Overlay Update]${colors.reset} Artist: "${artistPart}" | Song: "${songPart}"`);
+    
+    sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, 80, 5, `^2${artistPart}`, ButtonStyle.ISB_DARK);
     sendBtn(MY_UCID, OVERLAY_SONG, L, T+9, 80, 5, `^7${songPart}`, ButtonStyle.ISB_DARK);
 }
 
@@ -571,12 +589,12 @@ function showNowPlayingOverlay(nowPlaying) {
     sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
     
     // Zpracování textu
-    let artist = (nowPlaying.artist || "");
-    let song = (nowPlaying.song || nowPlaying.fullTitle || "");
+    let artist = stripColors(nowPlaying.artist || "");
+    let song = stripColors(nowPlaying.song || nowPlaying.fullTitle || "");
     
-    // Rozdělit na části (max 40 znaků na řádek v overlay)
-    overlayArtistParts = createTickerParts(artist, 60);
-    overlaySongParts = createTickerParts(song, 60);
+    // Rozdělit na části (max 50 znaků na řádek v overlay)
+    overlayArtistParts = createTickerParts(artist, 15);
+    overlaySongParts = createTickerParts(song, 15);
     
     // Zastavit starý ticker
     if (overlayTickerTimer) {
@@ -588,16 +606,22 @@ function showNowPlayingOverlay(nowPlaying) {
     // Zobraz první části
     updateOverlayText();
     
-    // Spustit ticker JEN pokud je něco delší než 15 znaků
-    if (artist.length > 15 || song.length > 15) {
+    // Spustit ticker JEN pokud existuje více než jedna část
+    const maxParts = Math.max(overlayArtistParts.length, overlaySongParts.length);
+    // console.log(`${colors.cyan}[Overlay]${colors.reset} Parts: artist=${overlayArtistParts.length}, song=${overlaySongParts.length}, max=${maxParts}`);
+    
+    if (maxParts > 1) {
+        // console.log(`${colors.green}[Overlay]${colors.reset} Starting ticker (${maxParts} parts, 3s interval)`);
         overlayTickerTimer = setInterval(() => {
             overlayTickerIndex++;
-            const maxParts = Math.max(overlayArtistParts.length, overlaySongParts.length);
             if (overlayTickerIndex >= maxParts) {
                 overlayTickerIndex = 0;
             }
+            // console.log(`${colors.magenta}[Overlay Ticker]${colors.reset} Part ${overlayTickerIndex + 1}/${maxParts}`);
             updateOverlayText();
         }, 3000); // Každé 3 sekundy
+    } else {
+        // console.log(`${colors.yellow}[Overlay]${colors.reset} No ticker needed (only 1 part)`);
     }
     
     // Program (pokud existuje)

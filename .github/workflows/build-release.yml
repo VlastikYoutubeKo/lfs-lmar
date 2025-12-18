@@ -60,7 +60,7 @@ jobs:
           if (!commits || commits.trim().length === 0) {
             console.log('Using fallback history.');
             try {
-                commits = execSync('git log -n 30 --pretty=format:"- %s (%an)"').toString();
+                commits = execSync('git log -n 5 --pretty=format:"- %s (%an)"').toString();
             } catch (e) { commits = 'No commits available.'; }
             diff = 'Full diff stats unavailable in fallback mode.';
           }
