@@ -30,7 +30,7 @@ jobs:
       - name: Build executable with SEA
         run: npm run build
       
-      # --- KROK 1: VYTVOŘENÍ JS SOUBORU ---
+      # --- KROK 1: VYTVOŘENÍ JS SOUBORU S NOVÝM PROMPTEM ---
       - name: Create Release Notes Script
         shell: powershell
         run: |
@@ -38,7 +38,7 @@ jobs:
           import { execSync } from 'child_process';
           import fs from 'fs';
 
-          const GEMINI_MODEL = 'gemini-3-flash-preview';
+          const GEMINI_MODEL = 'gemini-3-flash-preview'; // Doporučuji novější model, je rychlejší/levnější, nebo nech 'gemini-1.5-flash'
 
           console.log('--- STARTING HISTORY ---');
 
@@ -67,15 +67,18 @@ jobs:
 
           const tagName = process.env.TAG_NAME || 'Unknown Version';
           
-          const prompt = 'You are a Release Manager. Write release notes for ' + tagName + '.\n\n' +
-            'COMMITS:\n' + commits + '\n\n' +
-            'STATS:\n' + diff + '\n\n' +
-            'Instructions:\n' +
-            '1. Header with version.\n' +
-            '2. Group by: New Features, Bug Fixes, Improvements.\n' +
-            '3. Mention TC API logic or Chase logic specifically if found in commits.\n' +
-            '4. Use Markdown.\n' +
-            '5. Link issues: github.com/vlastikyoutubeko/lfs-lmar/issues\n';
+          // --- ZDE JE UPRAVENÝ PROMPT PRO POŽADOVANÝ STYL ---
+          const prompt = 'You are a Release Manager. Write release notes for ' + tagName + ' based on the commits below.\\n\\n' +
+            'COMMITS:\\n' + commits + '\\n\\n' +
+            'STATS:\\n' + diff + '\\n\\n' +
+            'STRICT OUTPUT FORMAT RULES:\\n' +
+            '1. Start with title: # Release Notes - ' + tagName + '\\n' +
+            '2. Section 1: ## 🚀 Improvements\\n' +
+            '3. Section 2: ## 🐞 Bug Fixes\\n' +
+            '4. Section 3: ## 🔧 Technical Notes\\n' +
+            '5. Formatting: Use bullet points. Start each bullet with a bold category name followed by a colon (e.g., * **Radio UI:** Fixed issue...).\\n' +
+            '6. CONTENT RULES: Group commits logically. If you see "TC API" or "Chase logic", explicitly mention them in Technical Notes. Keep summaries professional and concise.\\n' +
+            '7. Do NOT include any intro text, footer, or signature. Just the markdown content.';
 
           async function run() {
             if (!process.env.GEMINI_API_KEY) {
@@ -84,6 +87,7 @@ jobs:
               return;
             }
 
+            // Použijeme gemini-1.5-flash nebo gemini-2.0-flash-exp, pokud je v const nahoře nastaven
             const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + process.env.GEMINI_API_KEY;
             
             try {
@@ -119,14 +123,18 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: node release-notes.js
 
-      # --- KROK 3: PŘIPRAVIT FINÁLNÍ TEXT (AI + PATA) ---
+      # --- KROK 3: PŘIPRAVIT FINÁLNÍ TEXT (AI + PATA DLE POŽADAVKU) ---
       - name: Prepare Release Body
         shell: powershell
         run: |
+          # Zde je patička přesně podle tvého vzoru
           $footer = @"
           
           ---
-          
+          For a full list of issues and tasks, please visit our [Issue Tracker](https://github.com/vlastikyoutubeko/lfs-lmar/issues).
+
+          *Released by @VlastikYoutubeKo*
+
           ### 📦 Installation
           1. Download ZIP
           2. Run `lfs-live-map-radio.exe`
@@ -160,6 +168,6 @@ jobs:
         with:
           files: release/LFS-LiveMap-Radio-${{ github.ref_name }}.zip
           generate_release_notes: false 
-          body_path: release_body.md   # <--- TOTO JE TA HLAVNÍ OPRAVA
+          body_path: release_body.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
