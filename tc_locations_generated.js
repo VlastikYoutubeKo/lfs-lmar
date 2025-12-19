@@ -1,6 +1,6 @@
 // tc_locations.js
 // AUTO-GENERATED from TC API Track Data
-// Generated: 2025-12-18T19:33:51.815Z
+// Generated: 2025-12-19T12:18:33.960Z
 // Total Locations: 296
 
 export const TC_LOCATIONS = {
@@ -3798,8 +3798,8 @@ export const TC_LOCATIONS = {
     ]
   },
   "Donkey Drive": {
-    "x": -390.685,
-    "y": 129.35,
+    "x": -407.252,
+    "y": 128.554,
     "icon": "🛣️",
     "type": "road",
     "track": "SO7",
@@ -3815,6 +3815,10 @@ export const TC_LOCATIONS = {
       {
         "x": -441.94,
         "y": 115.23
+      },
+      {
+        "x": -473.52,
+        "y": 125.37
       },
       {
         "x": -491.52,
