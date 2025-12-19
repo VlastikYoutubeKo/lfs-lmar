@@ -1,37 +1,32 @@
 {
   "name": "lfs-live-map-radio",
-  "version": "1.0.0",
-  "description": "Live For Speed InSim aplikace s real-time mapou a funkčním rádiem",
+  "version": "2.0.0",
+  "description": "Live for Speed real-time map with navigation",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
-    "build": "node build.js",
-    "build:pkg": "node build.js",
-    "prebuild": "node prebuild.js"
+    "build": "pkg . --compress GZip"
   },
-  "keywords": [
-    "lfs",
-    "insim",
-    "live-for-speed",
-    "racing",
-    "radio",
-    "live-map"
-  ],
+  "keywords": ["lfs", "live-for-speed", "map", "insim"],
   "author": "Vlastimil",
   "license": "MIT",
   "dependencies": {
-    "node-insim": "^3.1.0",
-    "postject": "^1.0.0-alpha.6",
-    "react": "^18.3.1",
-    "react-node-insim": "^0.3.1",
+    "node-insim": "^3.4.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "pkg": "^5.8.1"
   },
-  "engines": {
-    "node": ">=21.0.0"
+  "pkg": {
+    "assets": [
+      "*.html",
+      "*.js",
+      "*.css",
+      "tracks/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
   }
 }
