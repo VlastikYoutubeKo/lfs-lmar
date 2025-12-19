@@ -4,7 +4,7 @@ Live For Speed InSim aplikace kombinující real-time mapu všech hráčů na se
 
 ## 📦 Releases
 
-Stáhni si poslední verzi z [Releases](https://github.com/VlastikYoutubeKo/lfs-lmar/releases) - obsahuje standalone EXE bez nutnosti instalace Node.js!
+Stáhni si poslední verzi pomocí `git clone https://github.com/vlastikyoutubeko/lfs-lmar`
 
 ## ✨ Funkce
 
@@ -26,7 +26,6 @@ Stáhni si poslední verzi z [Releases](https://github.com/VlastikYoutubeKo/lfs-
 
 ### Požadavky pro radio:
 - **MPV** (doporučeno): `choco install mpv`
-- **VLC**: https://www.videolan.org/
 
 ## 🛠️ Development Setup
 
@@ -59,17 +58,6 @@ npm run build
 
 Výsledek najdeš v `dist/` složce.
 
-### GitHub Actions:
-
-Build se automaticky spustí při vytvoření tagu:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-Release se automaticky vytvoří s připojeným ZIP souborem.
-
 ## 📖 Používání
 
 ### InSim GUI Commands:
@@ -97,13 +85,6 @@ Release se automaticky vytvoří s připojeným ZIP souborem.
 - **Hamburger menu:** Pravý horní roh - seznam hráčů a informace
 
 ## 🎮 LFS Konfigurace
-
-### Automatické připojení při startu LFS:
-
-Přidej do `cfg.txt`:
-```
-InSimPort=29999
-```
 
 ### Manuální připojení:
 
