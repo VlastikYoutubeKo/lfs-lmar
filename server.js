@@ -21,10 +21,24 @@ import {
   prepareAbradiaStation,
   getAbradiaNowPlaying
 } from './abradia_api.js';
+import {
+  parseMissionDestination,
+  getDestinationCoords,
+  calculateDistance,
+  calculateETA,
+  formatTime
+} from './tc_locations.js';
+import {
+  loadExistingLocations,
+  processApiData,
+  setupGracefulShutdown,
+  printStats
+} from './gps_logger.js';
 
 // === SWITCHES ===
 const FORCE_COP_MODE = process.argv.includes('--cop');   // Forces local player to be COP (sees cops, hides suspects)
 const ENABLE_DEBUG = process.argv.includes('--debug');   // Shows verbose API logs
+const ENABLE_GPS_LOGGER = process.argv.includes('--map-logger');   // GPS location logger
 
 // === ANSI COLORS ===
 const colors = {
@@ -34,6 +48,14 @@ const colors = {
 
 // === TC API CONFIG ===
 const TC_API_BASE = 'https://world.city-driving.co.uk/api/v2/json';
+
+// === GPS LOGGER INITIALIZATION ===
+if (ENABLE_GPS_LOGGER) {
+  console.log(`${colors.green}[GPS Logger]${colors.reset} Active! Mapping locations automatically...`);
+  loadExistingLocations();
+  setupGracefulShutdown();
+  setInterval(printStats, 60000);
+}
 
 // === LFS CODEPAGE SUPPORT ===
 const CP1252_UTF8_MAP = { '\u0095': '•', '\u008B': '‹', '\u009B': '›', '\u0099': '™' };
@@ -84,7 +106,7 @@ function convertLFSText(text) {
   return result;
 }
 
-// === TRANSLATIONS / PŘEKLADY ===
+// === TRANSLATIONS ===
 const TRANSLATIONS = {
     en: {
         GUI_TITLE: "^5 RADIO PLAYER",
@@ -160,11 +182,14 @@ const OVERLAY_CLOSE = 195;
 // === STATE ===
 const playerStates = new Map(); 
 
-// === CHASE MANAGEMENT (VIA API) ===
-// Klíč = Suspect UCID, Hodnota = Set(Cop UCIDs)
+// === CHASE MANAGEMENT ===
 const activeChases = new Map();
 let currentServerApiUrl = null;
 let apiUpdateTimer = null;
+
+// === GPS NAVIGATION DATA ===
+// PLID -> { destination, coords, distance, eta, missionText, icon }
+const playerMissions = new Map(); 
 
 let currentVolume = 50;
 let currentStation = null;
@@ -228,63 +253,131 @@ function detectTcServer(serverName) {
     return null;
 }
 
+// ... (začátek souboru zůstává stejný)
+
 async function updateChaseData() {
     if (!currentServerApiUrl) return;
 
     try {
         const response = await fetch(currentServerApiUrl);
-        if (!response.ok) {
-            if (ENABLE_DEBUG) console.log(`${colors.red}[TC API]${colors.reset} HTTP Error: ${response.status}`);
-            return;
-        }
+        if (!response.ok) return;
         
         const data = await response.json();
         if (!data) return;
 
-        activeChases.clear();
+        if (ENABLE_GPS_LOGGER) processApiData(data, MY_UCID);
 
-        // Parsování 'cs' pole (Chase Status)
+        // 1. ZPRACOVÁNÍ HONIČEK (stávající kód)
+        activeChases.clear();
         if (data.cs && Array.isArray(data.cs)) {
             data.cs.forEach(chase => {
-                // 1. Zpracovat Podezřelého (su)
-                if (chase.su && chase.su.u !== undefined) {
-                    const suspectUcid = Number(chase.su.u);
+                if (chase.su?.u) {
+                    const sUcid = Number(chase.su.u);
+                    if (!activeChases.has(sUcid)) activeChases.set(sUcid, new Set());
+                    if (chase.co) chase.co.forEach(c => c.u && activeChases.get(sUcid).add(Number(c.u)));
+                }
+            });
+        }
+
+        // 2. DETEKCE NEBEZPEČÍ NA SILNICI (NOVÉ)
+        const hazards = [];
+        if (data.ms && Array.isArray(data.ms)) {
+            data.ms.forEach(m => {
+                const text = m.lt || "";
+                // Hledáme klíčová slova opravářů
+                if (text.includes("Barrier Fixing") || text.includes("Pothole Fixing") || text.includes("Traffic Light")) {
+                    const locName = parseMissionDestination(text);
+                    const coords = getDestinationCoords(locName);
                     
-                    if (!activeChases.has(suspectUcid)) {
-                        activeChases.set(suspectUcid, new Set());
-                    }
-                    
-                    // 2. Zpracovat Policisty (co)
-                    if (chase.co && Array.isArray(chase.co)) {
-                        chase.co.forEach(cop => {
-                            if (cop.u !== undefined) {
-                                const copUcid = Number(cop.u);
-                                activeChases.get(suspectUcid).add(copUcid);
-                            }
+                    if (coords) {
+                        let type = "Road Work";
+                        if (text.includes("Barrier")) type = "Barrier Repair";
+                        if (text.includes("Pothole")) type = "Pothole Repair";
+                        if (text.includes("Traffic Light")) type = "Traffic Light Repair";
+
+                        hazards.push({
+                            type: type,
+                            location: locName,
+                            coords: coords, // Přibližná poloha (střed silnice)
+                            id: m.s // ID mise pro unikátnost
                         });
                     }
                 }
             });
         }
 
-        // DEBUG LOGOVÁNÍ (jen pokud je zapnuto --debug)
-        if (ENABLE_DEBUG) {
-            const suspects = Array.from(activeChases.keys());
-            if (suspects.length > 0) {
-                console.log(`${colors.magenta}[DEBUG API]${colors.reset} Suspect UCIDs in 'cs': [ ${suspects.join(', ')} ]`);
-                suspects.forEach(s_ucid => {
-                    const cops = activeChases.get(s_ucid);
-                    let sName = `Unknown (UCID ${s_ucid})`;
-                    for(const c of cars.values()) { if(c.ucid === s_ucid) sName = c.pname; }
-                    console.log(`   -> Chase: ${sName} | Cops: ${cops.size}`);
-                });
-            }
+        // 3. ZPRACOVÁNÍ HRÁČE A NAVIGACE (upraveno)
+        playerMissions.clear();
+        if (data.ps && typeof data.ps === 'object') {
+            Object.values(data.ps).forEach(player => {
+                if (!player.p || Number(player.u) !== MY_UCID) return;
+
+                const plid = player.p;
+                let missionData = null;
+
+                // Priority 1: LO (Souřadnice)
+                if (player.lo && player.lo.d) {
+                    missionData = {
+                        destination: "Target Location",
+                        coords: { x: player.lo.d.x, y: player.lo.d.y },
+                        icon: '📍',
+                        missionText: 'Active Mission'
+                    };
+                    if (player.lo.t === 'STOP') missionData.icon = '🚏';
+                    else if (player.lo.t === 'UNLOAD') missionData.icon = '🔽';
+                }
+
+                // Priority 2: Text mise
+                if (data.ms) {
+                    const mission = data.ms.find(m => m.ps && m.ps.includes(player.u));
+                    if (mission) {
+                        if (missionData) {
+                            missionData.missionText = mission.lt;
+                            const parsed = parseMissionDestination(mission.lt);
+                            if (parsed) missionData.destination = parsed;
+                        } else {
+                            const parsedDest = parseMissionDestination(mission.lt);
+                            const coords = getDestinationCoords(parsedDest);
+                            if (coords) {
+                                missionData = {
+                                    destination: parsedDest,
+                                    coords: coords,
+                                    missionText: mission.lt,
+                                    icon: coords.icon || '📍'
+                                };
+                            }
+                        }
+                    }
+                }
+
+                if (missionData) {
+                    const dist = calculateDistance(player.x, player.y, missionData.coords.x, missionData.coords.y);
+                    const eta = calculateETA(dist, player.s || 0);
+                    playerMissions.set(plid, { ...missionData, distance: dist, eta });
+                }
+            });
         }
 
-    } catch (e) {
-        console.error(`[TC API] Error fetching status: ${e.message}`);
-    }
+        // 4. ODESLÁNÍ DAT (včetně hazards)
+        const gpsData = Array.from(playerMissions.entries()).map(([plid, d]) => ({
+            plid, ...d
+        }));
+        
+        // Posíláme i když je prázdné, abychom případně smazali starou navigaci
+        wssMap.clients.forEach(client => {
+            if (client.readyState === 1) {
+                client.send(JSON.stringify({ 
+                    type: 'gps_update', 
+                    missions: gpsData,
+                    hazards: hazards // <--- NOVÉ POLE NEBEZPEČÍ
+                }));
+            }
+        });
+
+    } catch (e) { console.error(`[TC API] Error: ${e.message}`); }
 }
+
+// ... (zbytek souboru server.js zůstává stejný)
 
 function getPlayerRole(plid) {
     const numericPlid = Number(plid); 
@@ -292,15 +385,10 @@ function getPlayerRole(plid) {
     if (!car) return 'CIVILIAN';
     
     const ucid = Number(car.ucid);
-
-    // Je to suspect?
     if (activeChases.has(ucid)) return 'SUSPECT';
-    
-    // Je to cop?
     for (const cops of activeChases.values()) {
         if (cops.has(ucid)) return 'COP';
     }
-    
     return 'CIVILIAN';
 }
 
@@ -381,21 +469,17 @@ function startGuiWatchdog() {
             renderUI(255, 'icon');
         }
         
-        // ✅ Obnovit overlay tlačítka (BEZ resetu tickeru)
+        // Refresh Overlay (keep buttons alive)
         if (isOverlayVisible && currentStation && overlayArtistParts.length > 0) {
             const L = 60; const T = 160;
             const W = 80;
             const totalHeight = currentProgram ? 20 : 14;
             
-            // Překreslit background a header (neměnné části)
             sendBtn(MY_UCID, OVERLAY_BG, L, T, W, totalHeight, '', ButtonStyle.ISB_DARK);
             sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W, 4, t('OVERLAY_HEADER'), ButtonStyle.ISB_DARK);
             sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
-            
-            // Překreslit aktuální text (ticker si udržuje svůj index)
             updateOverlayText();
             
-            // Překreslit program (pokud existuje)
             if (currentProgram) {
                 let prog = currentProgram.name.substring(0, 40);
                 sendBtn(MY_UCID, OVERLAY_PROGRAM, L, T+14, W, 5, `${t('OVERLAY_PROGRAM')}^7${prog}`, ButtonStyle.ISB_DARK);
@@ -493,10 +577,6 @@ function tryConnectIpc(attempts = 0) {
     }, 300);
 }
 
-// === POMOCNÁ FUNKCE PRO PORCOVÁNÍ TEXTU (TICKER) ===
-// Funkce je definována níže u metadata logiky
-
-// === HELPERS ===
 function stripColors(text) {
     if (!text) return "";
     return text.replace(/\^[0-9a-zA-Z]/g, '');
@@ -504,12 +584,8 @@ function stripColors(text) {
 
 function updateOverlayText() {
     const L = 60; const T = 160;
-    
-    // Zobraz aktuální část artist
     const artistPart = overlayArtistParts[overlayTickerIndex % overlayArtistParts.length] || "";
     const songPart = overlaySongParts[overlayTickerIndex % overlaySongParts.length] || "";
-    
-    // console.log(`${colors.cyan}[Overlay Update]${colors.reset} Artist: "${artistPart}" | Song: "${songPart}"`);
     
     sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, 80, 5, `^2${artistPart}`, ButtonStyle.ISB_DARK);
     sendBtn(MY_UCID, OVERLAY_SONG, L, T+9, 80, 5, `^7${songPart}`, ButtonStyle.ISB_DARK);
@@ -520,30 +596,20 @@ function updateMetadata(raw, shouldBroadcast = false) {
     const hasChanged = currentMetadata !== raw;
     currentMetadata = raw;
     
-    // --- TICKER LOGIC ---
     let cleanRaw = stripColors(raw);
     let parts = [];
 
-    // Pokud obsahuje pomlčku, rozdělíme na Interpreta a Název
     if (cleanRaw.includes(" - ")) {
         const splitArr = cleanRaw.split(" - ");
         const artist = splitArr[0];
         const song = splitArr.slice(1).join(" - ");
-
-        // Naporcujeme obě části zvlášť po 20 znacích
-        const artistChunks = createTickerParts(artist, 20);
-        const songChunks = createTickerParts(song, 20);
-
-        // Spojíme do jednoho cyklu
-        parts = [...artistChunks, ...songChunks];
+        parts = [...createTickerParts(artist, 20), ...createTickerParts(song, 20)];
     } else {
-        // Jinak naporcujeme celý text
         parts = createTickerParts(cleanRaw, 20);
     }
 
     currentDisplayParts = parts;
 
-    // Pro overlay (velké okno) uložíme artist a song zvlášť
     let artistOverlay = "Radio", songOverlay = raw;
     if (raw.includes(" - ")) {
         const parts = raw.split(" - ");
@@ -552,12 +618,10 @@ function updateMetadata(raw, shouldBroadcast = false) {
     }
     lastNowPlayingInfo = { artist: artistOverlay, song: songOverlay, fullTitle: raw };
 
-    // Reset a start timeru
     if (tickerTimer) clearInterval(tickerTimer);
     tickerIndex = 0;
     updateStatusButtons();
     
-    // Interval 3 sekundy na každou část textu
     tickerTimer = setInterval(() => {
         tickerIndex = (tickerIndex + 1) % currentDisplayParts.length;
         updateStatusButtons();
@@ -583,69 +647,47 @@ function showNowPlayingOverlay(nowPlaying) {
     const W = 80; const L = 60; const T = 160; 
     const totalHeight = currentProgram ? 20 : 14; 
     
-    // Background a header
     sendBtn(MY_UCID, OVERLAY_BG, L, T, W, totalHeight, '', ButtonStyle.ISB_DARK);
     sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W, 4, t('OVERLAY_HEADER'), ButtonStyle.ISB_DARK);
     sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
     
-    // Zpracování textu
     let artist = stripColors(nowPlaying.artist || "");
     let song = stripColors(nowPlaying.song || nowPlaying.fullTitle || "");
     
-    // Rozdělit na části (max 50 znaků na řádek v overlay)
     overlayArtistParts = createTickerParts(artist, 15);
     overlaySongParts = createTickerParts(song, 15);
     
-    // Zastavit starý ticker
     if (overlayTickerTimer) {
         clearInterval(overlayTickerTimer);
         overlayTickerTimer = null;
     }
     overlayTickerIndex = 0;
     
-    // Zobraz první části
     updateOverlayText();
     
-    // Spustit ticker JEN pokud existuje více než jedna část
     const maxParts = Math.max(overlayArtistParts.length, overlaySongParts.length);
-    // console.log(`${colors.cyan}[Overlay]${colors.reset} Parts: artist=${overlayArtistParts.length}, song=${overlaySongParts.length}, max=${maxParts}`);
-    
     if (maxParts > 1) {
-        // console.log(`${colors.green}[Overlay]${colors.reset} Starting ticker (${maxParts} parts, 3s interval)`);
         overlayTickerTimer = setInterval(() => {
             overlayTickerIndex++;
-            if (overlayTickerIndex >= maxParts) {
-                overlayTickerIndex = 0;
-            }
-            // console.log(`${colors.magenta}[Overlay Ticker]${colors.reset} Part ${overlayTickerIndex + 1}/${maxParts}`);
+            if (overlayTickerIndex >= maxParts) overlayTickerIndex = 0;
             updateOverlayText();
-        }, 3000); // Každé 3 sekundy
-    } else {
-        // console.log(`${colors.yellow}[Overlay]${colors.reset} No ticker needed (only 1 part)`);
+        }, 3000);
     }
     
-    // Program (pokud existuje)
     if (currentProgram) {
         let prog = currentProgram.name.substring(0, 40);
         sendBtn(MY_UCID, OVERLAY_PROGRAM, L, T+14, W, 5, `${t('OVERLAY_PROGRAM')}^7${prog}`, ButtonStyle.ISB_DARK);
     }
 }
 
-
 function clearNowPlayingOverlay() {
     isOverlayVisible = false;
-    
-    // Zastavit ticker timer
-    if (overlayTickerTimer) {
-        clearInterval(overlayTickerTimer);
-        overlayTickerTimer = null;
-    }
-    
-    // Vyčistit tlačítka
+    if (overlayTickerTimer) { clearInterval(overlayTickerTimer); overlayTickerTimer = null; }
     for (let i = OVERLAY_BG; i <= OVERLAY_CLOSE; i++) {
         inSim.send(new IS_BFN({ReqI: 1, SubT: 1, UCID: MY_UCID, ClickID: i}));
     }
 }
+
 function sendBtn(ucid, id, l, t, w, h, text, style, typeIn = 0) {
     if (ucid !== MY_UCID && ucid !== 255) return;
     let finalStyle = style;
@@ -662,7 +704,6 @@ function clearGuiButtons(ucid) {
 function updateStatusButtons() {
     const state = playerStates.get(MY_UCID);
     if (state && state.state === 'main') {
-        // Tady se vypisuje text. Pokud máme části, zobrazíme aktuální část.
         let txtPart = currentDisplayParts[tickerIndex] || currentStation || t('STATUS_STOPPED');
         let txt = `^2${txtPart}`; 
         sendBtn(MY_UCID, 225, UI_LEFT+1, UI_TOP+36, 28, 4, txt.substring(0,27), ButtonStyle.ISB_DARK);
@@ -702,7 +743,6 @@ function renderUI(ucid, requestedState, extraData = null, page = 0) {
         sendBtn(ucid, 220, L+1, T+23, 28, 5, `^3[ ^7${t('BTN_SEARCH')} ^3]`, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         sendBtn(ucid, 213, L+1, T+29, 28, 5, `^7[ ^0${t('BTN_LANG')} ^7]`, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         
-        // Zobrazíme aktuální stav textu (první část nebo 'Stopped')
         let txtPart = currentDisplayParts[tickerIndex] || currentStation || t('STATUS_STOPPED');
         let txt = `^2${txtPart}`;
         sendBtn(MY_UCID, 225, L+1, T+36+5, 28, 4, txt.substring(0,27), ButtonStyle.ISB_DARK);
@@ -781,15 +821,12 @@ inSim.on('disconnect', () => {
 
 inSim.on(PacketType.ISP_ISM, (p) => {
   console.log(`${colors.green}[Server]${colors.reset} Joined: ${p.HName || 'Local'}`);
-  
-  // Detekce API endpointu podle názvu serveru
   currentServerApiUrl = detectTcServer(p.HName);
   if (currentServerApiUrl) {
       if (ENABLE_DEBUG) console.log(`${colors.cyan}[TC API]${colors.reset} Connected to API: ${currentServerApiUrl}`);
-      // Spustit pravidelný fetch každé 2s
       if (apiUpdateTimer) clearInterval(apiUpdateTimer);
       apiUpdateTimer = setInterval(updateChaseData, 2000);
-      updateChaseData(); // Hned poprvé
+      updateChaseData(); 
   } else {
       if (ENABLE_DEBUG) console.log(`${colors.yellow}[TC API]${colors.reset} Not a known TC server, API disabled.`);
       if (apiUpdateTimer) clearInterval(apiUpdateTimer);
@@ -839,7 +876,6 @@ inSim.on(PacketType.ISP_TINY, (p) => {
 });
 
 inSim.on(PacketType.ISP_MCI, (p) => {
-  // 1. Aktualizace pozic v paměti
   p.Info.forEach(carInfo => {
     const car = cars.get(carInfo.PLID);
     if (car) {
@@ -848,7 +884,6 @@ inSim.on(PacketType.ISP_MCI, (p) => {
     }
   });
 
-  // 2. Logika viditelnosti pro lokálního hráče
   let myPlid = null;
   for (const car of cars.values()) {
       if (car.ucid === MY_UCID) {
@@ -857,39 +892,20 @@ inSim.on(PacketType.ISP_MCI, (p) => {
       }
   }
 
-  let myRole = 'CIVILIAN';
-  if (FORCE_COP_MODE) {
-      myRole = 'COP';
-  } else if (myPlid !== null) {
-      myRole = getPlayerRole(myPlid);
-  }
+  let myRole = FORCE_COP_MODE ? 'COP' : (myPlid !== null ? getPlayerRole(myPlid) : 'CIVILIAN');
 
-  // 3. Filtrujeme auta pro odeslání na webovou mapu
   const mapData = Array.from(cars.values()).filter(targetCar => {
       const targetRole = getPlayerRole(targetCar.plid);
-      
-      // Civilisty vidí každý
       if (targetRole === 'CIVILIAN') return true;
-      
-      // Pokud se neúčastním honičky (jsem civilista), nevidím nikoho z honičky
       if (myRole === 'CIVILIAN') return false;
-      
-      // Pokud jsem Policista:
       if (myRole === 'COP') {
-          // Vidím ostatní policisty
           if (targetRole === 'COP') return true;
-          // NEVIDÍM podezřelé
           if (targetRole === 'SUSPECT') return false;
       }
-      
-      // Pokud jsem Podezřelý:
       if (myRole === 'SUSPECT') {
-          // NEVIDÍM policisty
           if (targetRole === 'COP') return false;
-          // Vidím sebe
           if (targetRole === 'SUSPECT') return true;
       }
-      
       return false; 
   }).map(c => ({
       plid: c.plid, name: c.pname, x: c.x, y: c.y, z: c.z, speed: c.speed, heading: c.heading
@@ -898,13 +914,11 @@ inSim.on(PacketType.ISP_MCI, (p) => {
   wssMap.clients.forEach(client => { if (client.readyState === 1) client.send(JSON.stringify({ type: 'positions', cars: mapData })); });
 });
 
-// GUI Logic (Nezměněno, jen MSO příkazy pro reset)
 inSim.on(PacketType.ISP_MSO, (p) => {
     if (p.UserType === UserType.MSO_O) {
         const msg = p.Msg; 
         if (msg === 'gui') {
             if (MY_UCID === 255 || MY_UCID !== p.UCID) {
-                if(ENABLE_DEBUG) console.log(`${colors.cyan}[System]${colors.reset} Manual override for UCID: ${p.UCID}`);
                 const oldState = playerStates.get(MY_UCID);
                 if (oldState) {
                     playerStates.set(p.UCID, oldState);
@@ -921,7 +935,6 @@ inSim.on(PacketType.ISP_MSO, (p) => {
                  state.state = 'main';
                  renderUI(MY_UCID, 'main', state.searchResults, state.page);
             }
-            console.log(`${colors.cyan}[Command]${colors.reset} ${t('MSG_GUI_RESET')}`);
         }
         else if (msg === 'np') {
             if (currentStation) showNowPlayingOverlay(lastNowPlayingInfo);
@@ -931,7 +944,6 @@ inSim.on(PacketType.ISP_MSO, (p) => {
 
 inSim.on(PacketType.ISP_BTC, async (p) => {
     if (MY_UCID === 255) {
-        if(ENABLE_DEBUG) console.log(`${colors.cyan}[System]${colors.reset} 👋 User interaction detected! Identifying as UCID: ${p.UCID}`);
         const oldState = playerStates.get(255);
         if (oldState) {
             playerStates.set(p.UCID, oldState);

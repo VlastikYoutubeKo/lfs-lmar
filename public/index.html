@@ -3,709 +3,1140 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🏁 LFS Live Map</title>
+  <title>LFS Maps Pro</title>
   <style>
-    /* Zajištění Unicode renderingu */
-    @font-face {
-      font-family: 'LFS-Unicode';
-      src: local('Segoe UI Symbol'),
-           local('Segoe UI Emoji'),
-           local('Arial Unicode MS'),
-           local('Noto Sans'),
-           local('DejaVu Sans');
-      unicode-range: U+0000-FFFF;
-    }
-    
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      /* Font stack s maximální Unicode podporou */
-      font-family: 
-        'LFS-Unicode',
-        'Segoe UI', 
-        'Segoe UI Symbol',
-        'Segoe UI Emoji',
-        'Noto Sans', 
-        'Arial Unicode MS', 
-        'Lucida Sans Unicode',
-        Arial, 
-        sans-serif;
-      background: #1a1a1a; 
-      color: #fff; 
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
       overflow: hidden;
-      /* Vylepšení renderingu textu */
-      text-rendering: optimizeLegibility;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
     }
     
-    /* FULLSCREEN MAP */
-    #mapContainer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; }
-    #mapCanvas { display: block; width: 100%; height: 100%; cursor: grab; }
-    #mapCanvas:active { cursor: grabbing; }
-
-    /* HAMBURGER BUTTON */
-    #hamburger {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      width: 50px;
-      height: 50px;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(10px);
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      z-index: 1001;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.3s;
+    #map { 
+      position: fixed; 
+      inset: 0; 
+      background: #1a1a1a;
     }
-    #hamburger span {
-      display: block;
-      width: 25px;
-      height: 3px;
-      background: white;
-      border-radius: 2px;
-      transition: all 0.3s;
+    
+    canvas { 
+      display: block; 
+      width: 100%; 
+      height: 100%; 
     }
-    #hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(8px, 8px); }
-    #hamburger.open span:nth-child(2) { opacity: 0; }
-    #hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(8px, -8px); }
-
-    /* SIDEBAR */
-    #sidebar {
+    
+    /* ===== NAVIGATION BAR ===== */
+    #navbar {
       position: fixed;
       top: 0;
-      right: -350px;
-      width: 350px;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.95);
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: rgba(10, 10, 10, 0.95);
       backdrop-filter: blur(10px);
-      padding: 20px;
-      overflow-y: auto;
-      box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
-      transition: right 0.3s ease;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 20px;
       z-index: 1000;
     }
-    #sidebar.open { right: 0; }
     
-    header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(255, 255, 255, 0.1); }
-    h1 { font-size: 22px; margin-bottom: 10px; }
-    #trackInfo { font-size: 13px; opacity: 0.8; margin-top: 5px; color: #4CAF50; font-weight: bold; }
+    #navbar h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #4a9eff;
+    }
     
-    #wsStatus { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ff4444; margin-right: 5px; animation: pulse 2s infinite; }
-    #wsStatus.connected { background: #44ff44; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-
-    .section { margin-bottom: 20px; background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 10px; }
-    .section-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #ffd700; text-transform: uppercase; letter-spacing: 1px; }
-    
-    #playersList { list-style: none; }
-    .player-item {
-      padding: 10px;
-      margin: 5px 0;
+    #searchBox {
+      flex: 1;
+      max-width: 500px;
+      height: 40px;
       background: rgba(255, 255, 255, 0.1);
-      border-radius: 5px;
-      font-size: 13px;
-      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      padding: 0 20px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
       transition: all 0.2s;
-      position: relative;
     }
-    .player-item:hover { background: rgba(255, 255, 255, 0.2); }
-    .player-item.following {
-      background: rgba(255, 215, 0, 0.3);
-      border: 2px solid #ffd700;
+    
+    #searchBox:focus {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: #4a9eff;
     }
-    .player-item.following::after {
-      content: '📍';
+    
+    #searchResults {
       position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
+      top: 65px;
+      left: 20px;
+      width: 500px;
+      max-height: 400px;
+      background: rgba(20, 20, 20, 0.98);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      overflow-y: auto;
+      display: none;
     }
-    .player-name { 
-      font-weight: bold;
-      font-family: 'Segoe UI Symbol', 'Segoe UI Emoji', 'Arial Unicode MS', 'Segoe UI', sans-serif;
-      text-shadow: 0 0 3px rgba(0,0,0,0.7), 0 0 5px rgba(0,0,0,0.5);
+    
+    #searchResults.show { display: block; }
+    
+    .result-group {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
-    .player-speed { color: #4CAF50; font-size: 11px; margin-top: 3px; }
-
-    /* MAP CONTROLS */
-    #mapControls { position: absolute; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.7); padding: 10px; border-radius: 10px; backdrop-filter: blur(10px); }
-    .map-btn { display: block; width: 40px; height: 40px; margin: 5px 0; background: rgba(255, 255, 255, 0.1); border: none; border-radius: 5px; color: white; font-size: 20px; cursor: pointer; transition: all 0.2s; }
-    .map-btn:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.1); }
-    #zoomLevel { text-align: center; font-size: 12px; margin-top: 5px; opacity: 0.8; }
-
-    /* LEGEND */
-    #legend { position: absolute; bottom: 20px; left: 20px; background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 10px; backdrop-filter: blur(10px); font-size: 12px; }
-    .legend-item { display: flex; align-items: center; margin: 5px 0; }
-    .legend-color { width: 15px; height: 15px; border-radius: 50%; margin-right: 8px; }
-
-    /* FOLLOWING INDICATOR */
-    #followingIndicator {
+    
+    .result-group:last-child { border: none; }
+    
+    .result-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    
+    .result-item {
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.15s;
+    }
+    
+    .result-item:hover {
+      background: rgba(74, 158, 255, 0.15);
+    }
+    
+    .result-icon {
+      font-size: 20px;
+      width: 30px;
+      text-align: center;
+    }
+    
+    .result-name {
+      flex: 1;
+      font-size: 14px;
+    }
+    
+    /* ===== HUD (NAVIGATION) ===== */
+    #hud {
       position: fixed;
-      top: 20px;
+      bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(255, 215, 0, 0.9);
-      color: #000;
-      padding: 10px 20px;
-      border-radius: 20px;
-      font-weight: bold;
-      font-size: 14px;
+      background: rgba(20, 20, 20, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 20px 24px;
       display: none;
-      z-index: 999;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      flex-direction: row;
+      align-items: center;
+      gap: 20px;
+      min-width: 400px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     }
-    #followingIndicator.show { display: block; }
-    #followingIndicator #followingName {
-      text-shadow: 0 0 2px rgba(0,0,0,0.5);
+    
+    #hud.active { display: flex; }
+    
+    #turnIcon {
+      font-size: 48px;
+      width: 60px;
+      text-align: center;
     }
-    #followingIndicator button {
-      margin-left: 10px;
-      background: #000;
-      color: #fff;
+    
+    #hudInfo {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    #timeRow {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    
+    #timeEta {
+      font-size: 32px;
+      font-weight: 700;
+      color: #4a9eff;
+    }
+    
+    #distance {
+      font-size: 18px;
+      color: #888;
+    }
+    
+    #metaRow {
+      display: flex;
+      gap: 12px;
+      font-size: 14px;
+      color: #aaa;
+    }
+    
+    #arrival { font-weight: 600; }
+    
+    #targetName {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    #closeNav {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
       border: none;
-      padding: 5px 10px;
-      border-radius: 10px;
+      color: #fff;
+      font-size: 20px;
       cursor: pointer;
-      font-size: 12px;
+      transition: all 0.2s;
+      display: grid;
+      place-items: center;
     }
+    
+    #closeNav:hover {
+      background: rgba(255, 70, 70, 0.2);
+      color: #ff4646;
+    }
+    
+    /* ===== CONTROLS ===== */
+    #controls {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 999;
+    }
+    
+    .control-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(20, 20, 20, 0.9);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: grid;
+      place-items: center;
+    }
+    
+    .control-btn:hover {
+      background: rgba(74, 158, 255, 0.2);
+      border-color: #4a9eff;
+      transform: scale(1.1);
+    }
+    
+    .control-btn.active {
+      background: #4a9eff;
+      color: #000;
+    }
+    
+    /* ===== PLAYER LIST ===== */
+    #playerList {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      width: 250px;
+      max-height: 400px;
+      background: rgba(20, 20, 20, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      overflow-y: auto;
+      display: none;
+    }
+    
+    #playerList.show { display: block; }
+    
+    #playerCount {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    
+    .player-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.15s;
+      margin-bottom: 4px;
+    }
+    
+    .player-item:hover {
+      background: rgba(74, 158, 255, 0.15);
+    }
+    
+    /* ===== LOADER ===== */
+    #loader {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(74, 158, 255, 0.95);
+      color: #000;
+      padding: 12px 24px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      display: none;
+      z-index: 2000;
+    }
+    
+    #loader.show { display: block; }
   </style>
 </head>
 <body>
-  <div id="mapContainer">
-    <canvas id="mapCanvas"></canvas>
-    
-    <div id="mapControls">
-      <button class="map-btn" onclick="zoomIn()">+</button>
-      <button class="map-btn" onclick="zoomOut()">−</button>
-      <button class="map-btn" onclick="resetView()" title="Reset View">⌂</button>
-      <div id="zoomLevel">100%</div>
-    </div>
-    
-    <div id="legend">
-      <div class="legend-item"><div class="legend-color" style="background: #FFD700;"></div><span>1. místo</span></div>
-      <div class="legend-item"><div class="legend-color" style="background: #4CAF50;"></div><span>Ostatní</span></div>
-    </div>
+  <!-- MAP -->
+  <div id="map">
+    <canvas id="canvas"></canvas>
   </div>
-
-  <button id="hamburger" onclick="toggleSidebar()">
-    <span></span>
-    <span></span>
-    <span></span>
-  </button>
-
-  <div id="followingIndicator">
-    📍 Sledování: <span id="followingName"></span>
-    <button onclick="stopFollowing()">✕</button>
+  
+  <!-- NAVBAR -->
+  <div id="navbar">
+    <h1>🏁 LFS Maps</h1>
+    <input type="text" id="searchBox" placeholder="Hledat místa nebo hráče..." />
+    <div style="flex: 1;"></div>
+    <div id="onlineCount" style="font-size: 13px; color: #888;">0 online</div>
   </div>
-
-  <div id="sidebar">
-    <header>
-      <h1>🏁 LFS Live Map</h1>
-      <div><span id="wsStatus"></span><span id="wsStatusText">Připojování...</span></div>
-      <div id="trackInfo">📍 Načítám...</div>
-    </header>
-
-    <div class="section">
-      <div class="section-title">👥 Hráči (<span id="playerCount">0</span>)</div>
-      <ul id="playersList"></ul>
+  
+  <!-- SEARCH RESULTS -->
+  <div id="searchResults"></div>
+  
+  <!-- HUD (Navigation) -->
+  <div id="hud">
+    <div id="turnIcon">⬆️</div>
+    <div id="hudInfo">
+      <div id="timeRow">
+        <div id="timeEta">-- min</div>
+        <div id="distance">-- km</div>
+      </div>
+      <div id="metaRow">
+        <span id="arrival">--:--</span>
+        <span>•</span>
+        <span id="targetName">Cíl</span>
+      </div>
     </div>
+    <button id="closeNav">✕</button>
   </div>
+  
+  <!-- CONTROLS -->
+  <div id="controls">
+    <button class="control-btn" id="zoomInBtn">+</button>
+    <button class="control-btn" id="zoomOutBtn">−</button>
+    <button class="control-btn" id="resetBtn">⌂</button>
+    <button class="control-btn active" id="gpsBtn">📍</button>
+    <button class="control-btn" id="soundBtn">🔇</button>
+    <button class="control-btn" id="playersBtn">👥</button>
+  </div>
+  
+  <!-- PLAYER LIST -->
+  <div id="playerList">
+    <div id="playerCount">0 HRÁČŮ</div>
+    <div id="playerItems"></div>
+  </div>
+  
+  <!-- LOADER -->
+  <div id="loader">Načítám navigační graf...</div>
 
-  <script>
-    // === GLOBAL FUNCTION - SIDEBAR TOGGLE ===
-    window.toggleSidebar = () => {
-      const sidebar = document.getElementById('sidebar');
-      const hamburger = document.getElementById('hamburger');
-      sidebar.classList.toggle('open');
-      hamburger.classList.toggle('open');
+  <!-- WORKER CODE -->
+  <script id="worker-code" type="javascript/worker">
+    class PriorityQueue {
+      constructor() { this.items = []; }
+      enqueue(element, priority) {
+        const qElement = { element, priority };
+        let added = false;
+        for (let i = 0; i < this.items.length; i++) {
+          if (this.items[i].priority > qElement.priority) {
+            this.items.splice(i, 0, qElement);
+            added = true;
+            break;
+          }
+        }
+        if (!added) this.items.push(qElement);
+      }
+      dequeue() { return this.items.shift(); }
+      isEmpty() { return this.items.length === 0; }
+    }
+
+    let nodes = [];
+    let graphReady = false;
+
+    self.onmessage = function(e) {
+      const { type, payload } = e.data;
+      
+      if (type === 'BUILD_GRAPH') {
+        buildGraph(payload);
+        self.postMessage({ type: 'GRAPH_READY' });
+      } 
+      else if (type === 'FIND_PATH') {
+        if (!graphReady) return;
+        const { startX, startY, endX, endY } = payload;
+        const path = findPath(startX, startY, endX, endY);
+        self.postMessage({ type: 'PATH_FOUND', payload: path });
+      }
     };
+
+    function buildGraph(locations) {
+      const nodeMap = new Map();
+      const roadSegments = [];
+      
+      Object.values(locations).forEach(loc => {
+        if (loc.points && loc.points.length > 1) {
+          roadSegments.push(loc.points);
+        }
+      });
+
+      const getNode = (x, y) => {
+        const key = `${Math.round(x * 10)},${Math.round(y * 10)}`;
+        if (nodeMap.has(key)) return nodeMap.get(key);
+        const idx = nodes.length;
+        nodes.push({ x, y, neighbors: [] });
+        nodeMap.set(key, idx);
+        return idx;
+      };
+
+      // Build road connections
+      roadSegments.forEach(pts => {
+        for (let i = 0; i < pts.length - 1; i++) {
+          const a = getNode(pts[i].x, pts[i].y);
+          const b = getNode(pts[i + 1].x, pts[i + 1].y);
+          const d = Math.hypot(pts[i].x - pts[i + 1].x, pts[i].y - pts[i + 1].y);
+          nodes[a].neighbors.push({ idx: b, dist: d });
+          nodes[b].neighbors.push({ idx: a, dist: d });
+        }
+      });
+
+      // Build spatial grid for intersection connections
+      const grid = new Map();
+      const CELL = 25;
+      nodes.forEach((node, idx) => {
+        const k = `${Math.floor(node.x / CELL)},${Math.floor(node.y / CELL)}`;
+        if (!grid.has(k)) grid.set(k, []);
+        grid.get(k).push(idx);
+      });
+
+      // Connect nearby nodes (intersections)
+      const MAX_DIST = 22;
+      nodes.forEach((nodeA, idxA) => {
+        const cx = Math.floor(nodeA.x / CELL);
+        const cy = Math.floor(nodeA.y / CELL);
+        
+        for (let x = cx - 1; x <= cx + 1; x++) {
+          for (let y = cy - 1; y <= cy + 1; y++) {
+            const k = `${x},${y}`;
+            if (!grid.has(k)) continue;
+            
+            grid.get(k).forEach(idxB => {
+              if (idxA >= idxB) return;
+              if (nodeA.neighbors.some(n => n.idx === idxB)) return;
+              
+              const nodeB = nodes[idxB];
+              const d = Math.hypot(nodeA.x - nodeB.x, nodeA.y - nodeB.y);
+              
+              if (d < MAX_DIST) {
+                nodes[idxA].neighbors.push({ idx: idxB, dist: d * 3 });
+                nodes[idxB].neighbors.push({ idx: idxA, dist: d * 3 });
+              }
+            });
+          }
+        }
+      });
+      
+      graphReady = true;
+    }
+
+    function findNearestNode(x, y) {
+      let best = -1;
+      let minD = Infinity;
+      for (let i = 0; i < nodes.length; i++) {
+        const d = (nodes[i].x - x) ** 2 + (nodes[i].y - y) ** 2;
+        if (d < minD) { minD = d; best = i; }
+      }
+      return (minD < 100000) ? best : -1;
+    }
+
+    function findPath(sx, sy, ex, ey) {
+      const start = findNearestNode(sx, sy);
+      const end = findNearestNode(ex, ey);
+      if (start === -1 || end === -1) return null;
+
+      const came = new Map();
+      const cost = new Map();
+      const pq = new PriorityQueue();
+
+      pq.enqueue(start, 0);
+      cost.set(start, 0);
+
+      while (!pq.isEmpty()) {
+        const curr = pq.dequeue().element;
+        if (curr === end) {
+          const path = [nodes[curr]];
+          let c = curr;
+          while (came.has(c)) {
+            c = came.get(c);
+            path.unshift(nodes[c]);
+          }
+          return path;
+        }
+
+        for (const next of nodes[curr].neighbors) {
+          const newCost = (cost.get(curr) || 0) + next.dist;
+          if (!cost.has(next.idx) || newCost < cost.get(next.idx)) {
+            cost.set(next.idx, newCost);
+            const h = Math.hypot(nodes[next.idx].x - ex, nodes[next.idx].y - ey);
+            pq.enqueue(next.idx, newCost + h);
+            came.set(next.idx, curr);
+          }
+        }
+      }
+      return null;
+    }
   </script>
 
   <script type="module">
     import { getTrackConfig, worldToCanvas } from './track_configs.js';
+    import { TC_LOCATIONS } from './tc_locations.js';
 
-    // === PLAYER FOLLOWING ===
-    let followingPLID = null;
-    let followingName = '';
-    let followingMissingFrames = 0; // Počítadlo framů kdy chybí sledovaný hráč
-    const MAX_MISSING_FRAMES = 30; // ~0.5 sekundy tolerance (60 FPS)
-
-    window.followPlayer = (plid, name) => {
-      followingPLID = plid;
-      followingName = name;
-      followingMissingFrames = 0;
-      // Použít HTML s barvami
-      document.getElementById('followingName').innerHTML = lfsToHTML(name);
-      document.getElementById('followingIndicator').classList.add('show');
-      updatePlayersList(); // Refresh list to show following state
+    // ===== GLOBALS =====
+    const LFS_COLORS = {
+      '0': '#000', '1': '#f03e3e', '2': '#40c057', '3': '#fcc419',
+      '4': '#228be6', '5': '#da77f2', '6': '#15aabf', '7': '#fff',
+      '8': '#fd7e14', '9': '#868e96'
     };
 
-    window.stopFollowing = () => {
-      followingPLID = null;
-      followingName = '';
-      followingMissingFrames = 0;
-      document.getElementById('followingIndicator').classList.remove('show');
-      updatePlayersList();
-    };
-
-    // === CANVAS SETUP ===
-    const canvas = document.getElementById('mapCanvas');
+    const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
-    function resizeCanvas() {
-      const container = document.getElementById('mapContainer');
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-    }
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+    const state = {
+      cars: new Map(),
+      camera: { x: 0, y: 0, zoom: 1 },
+      track: { config: getTrackConfig('BL'), img: new Image() },
+      nav: { target: null, path: null, distance: 0 },
+      ui: { following: null, dragging: false, lastDrag: { x: 0, y: 0 }, gpsEnabled: true, soundEnabled: false },
+      voice: { lastTurn: null, lastTurnTime: 0, avgSpeed: 0 }
+    };
 
-    // === CAMERA STATE ===
-    let cameraOffset = { x: 0, y: 0 };
-    let cameraZoom = 1;
-    const MIN_ZOOM = 0.1;
-    const MAX_ZOOM = 10;
+    // ===== WORKER =====
+    const blob = new Blob([document.getElementById('worker-code').textContent], { type: 'text/javascript' });
+    const worker = new Worker(URL.createObjectURL(blob));
+    let workerBusy = false;
 
-    // === MOUSE DRAG STATE ===
-    let isDragging = false;
-    let dragStart = { x: 0, y: 0 };
-    let initialOffset = { x: 0, y: 0 };
+    document.getElementById('loader').classList.add('show');
+    worker.postMessage({ type: 'BUILD_GRAPH', payload: TC_LOCATIONS });
 
-    // === TRACK STATE ===
-    let currentTrackCode = 'BL'; 
-    let currentTrackConfig = getTrackConfig('BL');
-    let trackImage = new Image();
-    trackImage.src = 'tracks/track_BL.png';
+    worker.onmessage = (e) => {
+      if (e.data.type === 'GRAPH_READY') {
+        document.getElementById('loader').classList.remove('show');
+      }
+      else if (e.data.type === 'PATH_FOUND') {
+        workerBusy = false;
+        if (e.data.payload && e.data.payload.length > 1) {
+          state.nav.path = e.data.payload;
+          state.nav.distance = calcPathDistance(e.data.payload);
+        }
+      }
+    };
 
-    // === DATA STATE ===
-    const cars = new Map();
-    let currentSearchType = 'name';
-
-    // === WEBSOCKET ===
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.host; // Použije aktuální host (např. IP mobilu)
-    const ws = new WebSocket(`${wsProtocol}//${wsHost}`);
+    // ===== WEBSOCKET =====
+    const ws = new WebSocket(`ws://${window.location.host}`);
     
-    ws.onopen = () => {
-      document.getElementById('wsStatus').classList.add('connected');
-      document.getElementById('wsStatusText').textContent = 'Připojeno';
-    };
-
-    ws.onclose = () => {
-      document.getElementById('wsStatus').classList.remove('connected');
-      document.getElementById('wsStatusText').textContent = 'Odpojeno';
-    };
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === 'positions') {
-        const oldSize = cars.size;
-        const oldPlids = new Set(cars.keys());
-        
-        cars.clear();
-        data.cars.forEach(car => cars.set(car.plid, car));
-        
-        // Update seznam jen když se změní počet hráčů nebo přidají noví
-        const newPlids = new Set(cars.keys());
-        const playersChanged = oldSize !== cars.size || 
-                               ![...oldPlids].every(plid => newPlids.has(plid));
-        
-        if (playersChanged) {
-          updatePlayersList();
-        } else {
-          // Jen update rychlostí bez překreslení celého seznamu
-          updatePlayerSpeeds();
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      
+      if (data.type === 'track') {
+        loadTrack(data.track);
+      }
+      else if (data.type === 'positions') {
+        const valid = new Set();
+        data.cars.forEach(c => {
+          state.cars.set(c.plid, c);
+          valid.add(c.plid);
+        });
+        for (let k of state.cars.keys()) {
+          if (!valid.has(k)) state.cars.delete(k);
         }
-        
-      } else if (data.type === 'track') {
-        console.log('🗺️ Změna tratě:', data.track);
-        
-        // Získat prefix tratě (např. "BL1" -> "BL")
-        const trackPrefix = data.track.substring(0, 2);
-        currentTrackCode = trackPrefix;
-        currentTrackConfig = getTrackConfig(trackPrefix);
-        
-        const newImage = new Image();
-        newImage.onload = () => {
-          trackImage = newImage;
-          // Reset view JEN pokud nesledujeme žádného hráče
-          if (followingPLID === null) {
-            resetView();
-          }
-        };
-        newImage.onerror = () => {
-          console.error('Nepodařilo se načíst mapu:', trackPrefix);
-          newImage.src = 'track_background.png';
-        };
-        newImage.src = `tracks/track_${trackPrefix}.png`;
-        
-        // Získat celý název tratě
-        const trackNames = {
-          'BL': 'Blackwood', 'SO': 'South City', 'FE': 'Fern Bay',
-          'AS': 'Aston', 'KY': 'Kyoto Ring', 'WE': 'Westhill',
-          'AU': 'Autocross', 'RO': 'Rockingham'
-        };
-        const trackName = trackNames[trackPrefix] || data.track;
-        document.getElementById('trackInfo').textContent = `📍 ${trackName} (${data.track})`;
-        
-      } else if (data.type === 'radio_status') {
-        const status = document.getElementById('radioStatus');
-        if (data.status === 'playing') {
-          status.innerHTML = `♪ ${data.station}`;
-          status.style.background = 'rgba(76, 175, 80, 0.2)';
-        } else {
-          status.textContent = '⏸ Zastaveno';
-          status.style.background = 'rgba(255, 0, 0, 0.2)';
-        }
-      } else if (data.type === 'radio_search_results') {
-        displaySearchResults(data.results);
+        updatePlayerList();
       }
     };
 
-    // === INTERACTION HANDLERS ===
-    canvas.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      dragStart = { x: e.clientX, y: e.clientY };
-      initialOffset = { ...cameraOffset };
-      stopFollowing(); // Vypnout sledování když uživatel tahá myší
-    });
-
-    canvas.addEventListener('mousemove', (e) => {
-      if (isDragging) {
-        cameraOffset.x = initialOffset.x + (e.clientX - dragStart.x);
-        cameraOffset.y = initialOffset.y + (e.clientY - dragStart.y);
-      }
-    });
-
-    canvas.addEventListener('mouseup', () => { isDragging = false; });
-    canvas.addEventListener('mouseleave', () => { isDragging = false; });
-
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, cameraZoom * zoomFactor));
-      
-      cameraOffset.x = mouseX - (mouseX - cameraOffset.x) * (newZoom / cameraZoom);
-      cameraOffset.y = mouseY - (mouseY - cameraOffset.y) * (newZoom / cameraZoom);
-      
-      cameraZoom = newZoom;
-      updateZoomDisplay();
-    }, { passive: false });
-
-    window.zoomIn = () => { cameraZoom = Math.min(MAX_ZOOM, cameraZoom * 1.2); updateZoomDisplay(); };
-    window.zoomOut = () => { cameraZoom = Math.max(MIN_ZOOM, cameraZoom * 0.8); updateZoomDisplay(); };
-    
-    window.resetView = () => {
-      stopFollowing(); // Vypnout sledování při resetu
-      if (!trackImage.complete) return;
-      const scaleX = canvas.width / trackImage.naturalWidth;
-      const scaleY = canvas.height / trackImage.naturalHeight;
-      const scale = Math.min(scaleX, scaleY) * 0.9; 
-      cameraZoom = scale;
-      cameraOffset.x = (canvas.width - trackImage.naturalWidth * scale) / 2;
-      cameraOffset.y = (canvas.height - trackImage.naturalHeight * scale) / 2;
-      updateZoomDisplay();
-    };
-
-    // === TOUCH EVENTS PRO MOBIL ===
-    canvas.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
-        isDragging = true;
-        const touch = e.touches[0];
-        dragStart = { x: touch.clientX, y: touch.clientY };
-        initialOffset = { ...cameraOffset };
-        stopFollowing();
-        e.preventDefault();
-      }
-    }, { passive: false });
-
-    canvas.addEventListener('touchmove', (e) => {
-      if (isDragging && e.touches.length === 1) {
-        const touch = e.touches[0];
-        cameraOffset.x = initialOffset.x + (touch.clientX - dragStart.x);
-        cameraOffset.y = initialOffset.y + (touch.clientY - dragStart.y);
-        e.preventDefault();
-      }
-    }, { passive: false });
-
-    canvas.addEventListener('touchend', () => {
-      isDragging = false;
-    });
-
-    function updateZoomDisplay() {
-      document.getElementById('zoomLevel').textContent = `${Math.round(cameraZoom * 100)}%`;
+    // ===== NAVIGATION =====
+    function setTarget(name, coords, icon) {
+      state.nav.target = { name, x: coords.x, y: coords.y, icon, points: coords.points || null };
+      state.nav.path = null;
+      state.voice.lastTurn = null;
+      requestPath();
+      hideSearch();
     }
 
-    // === LFS COLOR PARSING ===
-    function parseLFSColors(text) {
-      const LFS_COLORS = {
-        '0': '#000000', // Černá
-        '1': '#FF0000', // Červená
-        '2': '#00FF00', // Zelená
-        '3': '#FFFF00', // Žlutá
-        '4': '#0000FF', // Modrá
-        '5': '#FF00FF', // Magenta
-        '6': '#00FFFF', // Cyan
-        '7': '#FFFFFF', // Bílá
-        '8': '#FF8800', // Oranžová
-        '9': '#808080', // Šedá
-        'a': '#FFC0CB', // Růžová (light red)
-        'b': '#90EE90', // Světle zelená
-        'c': '#FFFFE0', // Světle žlutá
-        'd': '#ADD8E6', // Světle modrá
-        'e': '#DDA0DD', // Světle magenta
-        'f': '#E0FFFF', // Světle cyan
-        'g': '#F5F5F5', // Téměř bílá
-        'h': '#C0C0C0'  // Stříbrná
-      };
-      
-      // LFS codepage escape kódy (ignorujeme je pro HTML rendering)
-      const CODEPAGE_CODES = ['L', 'G', 'C', 'J', 'E', 'T', 'B', 'H', 'S', 'K'];
-      
-      const segments = [];
-      let currentColor = '#FFFFFF'; // Default bílá
-      let currentText = '';
-      
-      for (let i = 0; i < text.length; i++) {
-        if (text[i] === '^' && i + 1 < text.length) {
-          const code = text[i + 1];
-          const colorCode = code.toLowerCase();
-          
-          // Zkontrolovat jestli je to color kód
-          if (LFS_COLORS[colorCode]) {
-            // Uložit aktuální segment
-            if (currentText) {
-              segments.push({ text: currentText, color: currentColor });
-              currentText = '';
-            }
-            // Změnit barvu
-            currentColor = LFS_COLORS[colorCode];
-            i++; // Přeskočit color kód
-            continue;
-          }
-          
-          // Zkontrolovat jestli je to codepage kód (ignorujeme ho)
-          if (CODEPAGE_CODES.includes(code.toUpperCase())) {
-            i++; // Přeskočit codepage kód, ale nepřidávat do textu
-            continue;
-          }
+    function requestPath() {
+      if (!state.nav.target || !state.ui.following || workerBusy) return;
+      const me = state.cars.get(state.ui.following);
+      if (!me) return;
+
+      let tx = state.nav.target.x;
+      let ty = state.nav.target.y;
+
+      // Snap to road if possible
+      if (state.nav.target.points && state.nav.target.points.length > 0) {
+        let minD = Infinity;
+        let best = null;
+        for (const pt of state.nav.target.points) {
+          const d = Math.hypot(pt.x - tx, pt.y - ty);
+          if (d < minD) { minD = d; best = pt; }
         }
-        currentText += text[i];
-      }
-      
-      // Uložit poslední segment
-      if (currentText) {
-        segments.push({ text: currentText, color: currentColor });
-      }
-      
-      return segments;
-    }
-
-    // Převést LFS text na HTML s barvami
-    function lfsToHTML(text) {
-      const segments = parseLFSColors(text);
-      return segments.map(seg => 
-        `<span style="color: ${seg.color}">${escapeHTML(seg.text)}</span>`
-      ).join('');
-    }
-
-    // Escapovat HTML znaky
-    function escapeHTML(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    // === RENDER LOOP ===
-    function renderMap() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // === SLEDOVÁNÍ HRÁČE ===
-      if (followingPLID !== null) {
-        const followedCar = cars.get(followingPLID);
-        if (followedCar) {
-          // Hráč existuje - resetovat počítadlo
-          followingMissingFrames = 0;
-          
-          const pos = worldToCanvas(
-            followedCar.x,
-            followedCar.y,
-            currentTrackConfig,
-            trackImage.naturalWidth || 1024,
-            trackImage.naturalHeight || 1024
-          );
-          
-          // Centrovat kameru na hráče
-          cameraOffset.x = canvas.width / 2 - pos.x * cameraZoom;
-          cameraOffset.y = canvas.height / 2 - pos.y * cameraZoom;
-        } else {
-          // Hráč chybí - zvýšit počítadlo
-          followingMissingFrames++;
-          
-          // Vypnout sledování jen pokud chybí déle než toleranci
-          // (respawn trvá jen pár framů, odpojení je trvalé)
-          if (followingMissingFrames > MAX_MISSING_FRAMES) {
-            console.log(`Hráč ${followingName} se odpojil - vypínám sledování`);
-            stopFollowing();
-          }
-          // Pokud je v toleranci, prostě pokračujeme s poslední pozicí kamery
+        if (best && minD < 50) {
+          tx = best.x;
+          ty = best.y;
         }
       }
+
+      workerBusy = true;
+      worker.postMessage({
+        type: 'FIND_PATH',
+        payload: { startX: me.x, startY: me.y, endX: tx, endY: ty }
+      });
+    }
+
+    setInterval(requestPath, 1000);
+
+    function stopNav() {
+      state.nav.target = null;
+      state.nav.path = null;
+      document.getElementById('hud').classList.remove('active');
+    }
+
+    // ===== TURN DETECTION =====
+    function detectTurn(path) {
+      if (!path || path.length < 10) return null;
+
+      const WIN = 4; // Větší okno = stabilnější detekce
       
+      for (let i = WIN; i < Math.min(path.length - WIN - 1, 40); i++) {
+        let dist = 0;
+        for (let j = 1; j <= i; j++) {
+          dist += Math.hypot(path[j].x - path[j-1].x, path[j].y - path[j-1].y);
+        }
+        
+        if (dist > 150) break;
+        if (dist < 50) continue;
+        
+        let before = 0, after = 0, cntB = 0, cntA = 0;
+        
+        // Průměrný směr PŘED odbočkou
+        for (let j = Math.max(1, i - WIN); j < i; j++) {
+          const dx = path[j].x - path[j-1].x;
+          const dy = path[j].y - path[j-1].y;
+          const d = Math.hypot(dx, dy);
+          if (d > 5) { before += Math.atan2(dy, dx); cntB++; }
+        }
+        
+        // Průměrný směr PO odbočce
+        for (let j = i; j < Math.min(i + WIN, path.length - 1); j++) {
+          const dx = path[j+1].x - path[j].x;
+          const dy = path[j+1].y - path[j].y;
+          const d = Math.hypot(dx, dy);
+          if (d > 5) { after += Math.atan2(dy, dx); cntA++; }
+        }
+        
+        if (cntB === 0 || cntA === 0) continue;
+        
+        before /= cntB;
+        after /= cntA;
+        
+        let diff = after - before;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        
+        const deg = Math.abs(diff * 180 / Math.PI);
+        
+        // PŘÍSNĚJŠÍ: 60° místo 50° (méně false positives)
+        if (deg > 60) {
+          // Určit typ odbočky podle úhlu
+          let turnType;
+          if (deg < 100) {
+            // Mírná odbočka (60-100°)
+            turnType = diff > 0 ? 'slight_left' : 'slight_right';
+          } else {
+            // Ostrá odbočka (100°+)
+            turnType = diff > 0 ? 'left' : 'right';
+          }
+          
+          return { type: turnType, dist, angle: deg };
+        }
+      }
+      return null;
+    }
+
+    // ===== VOICE =====
+    function speak(text) {
+      if (!state.ui.soundEnabled || !window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'cs-CZ';
+      u.rate = 1.1;
+      window.speechSynthesis.speak(u);
+    }
+
+    // ===== RENDER =====
+    function render() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Camera follow
+      if (state.ui.following !== null && !state.ui.dragging) {
+        const car = state.cars.get(state.ui.following);
+        if (car) {
+          const p = worldToCanvas(car.x, car.y, state.track.config, state.track.img.width, state.track.img.height);
+          state.camera.x = canvas.width / 2 - p.x * state.camera.zoom;
+          state.camera.y = canvas.height / 2 - p.y * state.camera.zoom;
+        }
+      }
+
       ctx.save();
-      ctx.translate(cameraOffset.x, cameraOffset.y);
-      ctx.scale(cameraZoom, cameraZoom);
-      
-      if (trackImage.complete) {
-        ctx.drawImage(trackImage, 0, 0);
+      ctx.translate(state.camera.x, state.camera.y);
+      ctx.scale(state.camera.zoom, state.camera.zoom);
+
+      // Track
+      if (state.track.img.complete) {
+        ctx.drawImage(state.track.img, 0, 0);
       }
 
-      cars.forEach((car) => {
-        const pos = worldToCanvas(
-          car.x, 
-          car.y, 
-          currentTrackConfig,
-          trackImage.naturalWidth || 1024, 
-          trackImage.naturalHeight || 1024
-        );
+      // Path
+      if (state.ui.gpsEnabled && state.nav.path && state.nav.path.length > 1) {
+        const me = state.cars.get(state.ui.following);
         
-        const color = car.position === 1 ? '#FFD700' : '#4CAF50';
-        
-        ctx.save();
-        ctx.translate(pos.x, pos.y);
-        
-        // --- OPRAVA ROTACE PRO LFS ---
-        // LFS Heading: 0 = Nahoru, otáčí se Doleva (CCW)
-        // Canvas Rotation: 0 = Doprava, otáčí se Doprava (CW)
-        //
-        // 1. Invertujeme LFS heading (-car.heading), aby šel Doprava (CW)
-        // 2. LFS 0 je "Nahoru". Canvas 0 je "Doprava". Rozdíl je -90 stupňů.
-        // Vzorec: (-heading - 90)
-        
-        ctx.rotate((-car.heading) * Math.PI / 180);
-        
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(0, -8);
-        ctx.lineTo(-5, 7);
-        ctx.lineTo(5, 7);
-        ctx.closePath();
         
-        ctx.fillStyle = color;
+        if (me) {
+          const sp = worldToCanvas(me.x, me.y, state.track.config, state.track.img.width, state.track.img.height);
+          ctx.moveTo(sp.x, sp.y);
+        }
+        
+        state.nav.path.forEach((pt, i) => {
+          const p = worldToCanvas(pt.x, pt.y, state.track.config, state.track.img.width, state.track.img.height);
+          if (i === 0 && !me) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        
+        ctx.lineWidth = 14;
+        ctx.strokeStyle = 'rgba(74, 158, 255, 0.4)';
+        ctx.stroke();
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = '#4a9eff';
+        ctx.stroke();
+
+        // Destination marker
+        if (state.nav.target) {
+          const tp = worldToCanvas(state.nav.target.x, state.nav.target.y, state.track.config, state.track.img.width, state.track.img.height);
+          const pulse = 8 + Math.sin(Date.now() / 300) * 4;
+          
+          ctx.fillStyle = 'rgba(74, 158, 255, 0.2)';
+          ctx.beginPath();
+          ctx.arc(tp.x, tp.y, pulse + 20, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = '#4a9eff';
+          ctx.beginPath();
+          ctx.arc(tp.x, tp.y, 15, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(tp.x, tp.y, 8, 0, Math.PI * 2);
+          ctx.fill();
+          
+          if (state.nav.target.icon) {
+            ctx.font = 'bold 26px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(state.nav.target.icon, tp.x, tp.y - 40);
+          }
+        }
+
+        // Update HUD
+        if (me) {
+          const dist = Math.hypot(me.x - state.nav.target.x, me.y - state.nav.target.y);
+          
+          if (dist < 25) {
+            stopNav();
+            if (state.ui.soundEnabled) speak('Jste v cíli');
+          } else {
+            state.voice.avgSpeed = state.voice.avgSpeed * 0.95 + me.speed * 0.05;
+            const effSpeed = (state.voice.avgSpeed * 3.6 < 10) ? 13.8 : state.voice.avgSpeed;
+            const timeMin = (state.nav.distance / effSpeed) / 60;
+
+            document.getElementById('hud').classList.add('active');
+            document.getElementById('timeEta').textContent = formatTime(timeMin);
+            document.getElementById('distance').textContent = formatDist(state.nav.distance);
+            document.getElementById('arrival').textContent = getArrival(timeMin);
+            document.getElementById('targetName').textContent = stripColors(state.nav.target.name);
+
+            // Turn detection & voice guidance (Google Maps style)
+            const turn = detectTurn(state.nav.path);
+            const icon = document.getElementById('turnIcon');
+            
+            if (turn) {
+              // Ikony podle typu odbočky
+              if (turn.type === 'slight_left') icon.textContent = '↖️';
+              else if (turn.type === 'slight_right') icon.textContent = '↗️';
+              else if (turn.type === 'left') icon.textContent = '⬅️';
+              else if (turn.type === 'right') icon.textContent = '➡️';
+              
+              // GOOGLE MAPS STYL - Více hlášení podle vzdálenosti
+              if (state.ui.soundEnabled) {
+                const now = Date.now();
+                const timeSinceLastAnnouncement = now - state.voice.lastTurnTime;
+                
+                // Určit co říct podle vzdálenosti
+                let shouldSpeak = false;
+                let message = '';
+                
+                const d = Math.round(turn.dist);
+                const turnText = {
+                  'slight_left': 'mírně vlevo',
+                  'slight_right': 'mírně vpravo',
+                  'left': 'vlevo',
+                  'right': 'vpravo'
+                }[turn.type];
+                
+                // 1. Předběžné varování (120-150m)
+                if (d >= 120 && d <= 150 && (!state.voice.lastTurn || state.voice.lastTurn !== `pre_${turn.type}`)) {
+                  shouldSpeak = true;
+                  message = `Za ${d} metrů odbočte ${turnText}`;
+                  state.voice.lastTurn = `pre_${turn.type}`;
+                  state.voice.lastTurnTime = now;
+                }
+                // 2. Hlavní instrukce (80-100m)
+                else if (d >= 80 && d < 100 && (!state.voice.lastTurn || !state.voice.lastTurn.startsWith('main')) && timeSinceLastAnnouncement > 8000) {
+                  shouldSpeak = true;
+                  message = `Za ${d} metrů odbočte ${turnText}`;
+                  state.voice.lastTurn = `main_${turn.type}`;
+                  state.voice.lastTurnTime = now;
+                }
+                // 3. Blízká instrukce (50-60m)
+                else if (d >= 50 && d < 60 && (!state.voice.lastTurn || !state.voice.lastTurn.startsWith('near')) && timeSinceLastAnnouncement > 6000) {
+                  shouldSpeak = true;
+                  message = `Připravte se odbočit ${turnText}`;
+                  state.voice.lastTurn = `near_${turn.type}`;
+                  state.voice.lastTurnTime = now;
+                }
+                
+                if (shouldSpeak) {
+                  speak(message);
+                }
+              }
+            } else {
+              icon.textContent = '⬆️';
+              // Reset když už není žádná odbočka blízko
+              if (state.nav.distance > 200) {
+                state.voice.lastTurn = null;
+              }
+            }
+          }
+        }
+      } else {
+        document.getElementById('hud').classList.remove('active');
+      }
+
+      // Cars
+      state.cars.forEach(car => {
+        const p = worldToCanvas(car.x, car.y, state.track.config, state.track.img.width, state.track.img.height);
+        const isMe = car.plid === state.ui.following;
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(-car.heading * Math.PI / 180);
+
+        if (isMe) {
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, 100, -Math.PI * 0.75, -Math.PI * 0.25);
+          ctx.fillStyle = 'rgba(74, 158, 255, 0.2)';
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(0, -12);
+        ctx.lineTo(8, 10);
+        ctx.lineTo(0, 6);
+        ctx.lineTo(-8, 10);
+        ctx.closePath();
+        ctx.fillStyle = isMe ? '#4a9eff' : '#fff';
         ctx.fill();
         ctx.lineWidth = 1;
-        ctx.strokeStyle = '#000';
+        ctx.strokeStyle = '#777';
         ctx.stroke();
-        
         ctx.restore();
-        
-        if (cameraZoom > 0.8) {
-          ctx.save();
-          ctx.translate(pos.x, pos.y - 15);
-          ctx.scale(1/cameraZoom, 1/cameraZoom); 
+
+        // Name tag
+        if (state.camera.zoom > 0.6) {
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          const segs = parseLFSColors(car.name);
+          let w = 0;
+          segs.forEach(s => w += ctx.measureText(s.text).width);
           
-          // Parsovat LFS barvy (^0-^9, ^a-^h)
-          const name = parseLFSColors(car.name);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.beginPath();
+          ctx.roundRect(p.x - w/2 - 6, p.y - 30, w + 12, 18, 9);
+          ctx.fill();
           
-          ctx.font = 'bold 12px "Segoe UI Symbol", "Segoe UI Emoji", "Arial Unicode MS", Arial, sans-serif';
-          ctx.textAlign = 'left'; // Změna na left, budeme počítat offset sami
-          
-          // Spočítat celkovou šířku textu pro centrování
-          let totalWidth = 0;
-          name.forEach(segment => {
-            totalWidth += ctx.measureText(segment.text).width;
+          let x = p.x - w/2;
+          segs.forEach(s => {
+            ctx.fillStyle = (s.color === '#fff' || s.color === '#ffffff') ? '#000' : s.color;
+            ctx.fillText(s.text, x + ctx.measureText(s.text).width/2, p.y - 17);
+            x += ctx.measureText(s.text).width;
           });
-          
-          // Začít vykreslovat od -totalWidth/2 pro centrování
-          let xOffset = -totalWidth / 2;
-          
-          name.forEach(segment => {
-            const metrics = ctx.measureText(segment.text);
-            const textWidth = metrics.width;
-            
-            // Černý border (stroke) - silnější
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 3;
-            ctx.lineJoin = 'round';
-            ctx.miterLimit = 2;
-            ctx.strokeText(segment.text, xOffset, 0);
-            
-            // Barevný text (fill)
-            ctx.fillStyle = segment.color;
-            ctx.fillText(segment.text, xOffset, 0);
-            
-            xOffset += textWidth;
-          });
-          
-          ctx.restore();
         }
       });
-      
+
       ctx.restore();
-      
-      requestAnimationFrame(renderMap);
+      requestAnimationFrame(render);
     }
 
-    renderMap();
+    // ===== SEARCH =====
+    function search() {
+      const val = document.getElementById('searchBox').value.toLowerCase();
+      const cont = document.getElementById('searchResults');
+      cont.innerHTML = '';
+      
+      if (val.length < 2) {
+        cont.classList.remove('show');
+        return;
+      }
 
-    // === UTILS ===
-    function updatePlayersList() {
-      const list = document.getElementById('playersList');
-      const sorted = Array.from(cars.values()).sort((a, b) => (a.position || 999) - (b.position || 999));
+      const locs = Object.entries(TC_LOCATIONS)
+        .filter(([n]) => n.toLowerCase().includes(val))
+        .slice(0, 5);
       
-      list.innerHTML = sorted.map(c => {
-        const isFollowing = c.plid === followingPLID;
-        const followingClass = isFollowing ? ' following' : '';
-        const coloredName = lfsToHTML(c.name);
-        return `
-          <li class="player-item${followingClass}" data-plid="${c.plid}" onclick="followPlayer(${c.plid}, '${escapeHTML(c.name)}')">
-            <div class="player-name">${coloredName}</div>
-            <div class="player-speed" data-speed>${Math.round(c.speed * 3.6)} km/h</div>
-          </li>
-        `;
-      }).join('');
-      
-      document.getElementById('playerCount').textContent = sorted.length;
+      const plys = Array.from(state.cars.values())
+        .filter(c => stripColors(c.name).toLowerCase().includes(val))
+        .slice(0, 5);
+
+      if (locs.length) {
+        cont.innerHTML += `<div class="result-group"><div class="result-label">MÍSTA</div>`;
+        locs.forEach(([n, d]) => {
+          cont.innerHTML += `<div class="result-item" onclick="selectLocation('${n}')">
+            <span class="result-icon">${d.icon}</span>
+            <span class="result-name">${n}</span>
+          </div>`;
+        });
+        cont.innerHTML += '</div>';
+      }
+
+      if (plys.length) {
+        cont.innerHTML += `<div class="result-group"><div class="result-label">HRÁČI</div>`;
+        plys.forEach(c => {
+          cont.innerHTML += `<div class="result-item" onclick="followPlayer(${c.plid})">
+            <span class="result-icon">👤</span>
+            <span class="result-name">${lfsToHTML(c.name)}</span>
+          </div>`;
+        });
+        cont.innerHTML += '</div>';
+      }
+
+      cont.classList.add('show');
     }
 
-    // Rychlá aktualizace rychlostí bez překreslení celého seznamu
-    function updatePlayerSpeeds() {
-      const items = document.querySelectorAll('.player-item');
-      items.forEach(item => {
-        const plid = parseInt(item.getAttribute('data-plid'));
-        const car = cars.get(plid);
-        if (car) {
-          const speedDiv = item.querySelector('[data-speed]');
-          if (speedDiv) {
-            speedDiv.textContent = `${Math.round(car.speed * 3.6)} km/h`;
+    function hideSearch() {
+      document.getElementById('searchResults').classList.remove('show');
+      document.getElementById('searchBox').value = '';
+    }
+
+    window.selectLocation = (name) => {
+      const data = TC_LOCATIONS[name];
+      if (data) setTarget(name, data, data.icon);
+    };
+
+    window.followPlayer = (plid) => {
+      state.ui.following = plid;
+      hideSearch();
+    };
+
+    // ===== PLAYER LIST =====
+    function updatePlayerList() {
+      document.getElementById('onlineCount').textContent = `${state.cars.size} online`;
+      document.getElementById('playerCount').textContent = `${state.cars.size} HRÁČŮ`;
+      
+      const items = document.getElementById('playerItems');
+      items.innerHTML = Array.from(state.cars.values())
+        .map(c => `<div class="player-item" onclick="followPlayer(${c.plid})">${lfsToHTML(c.name)}</div>`)
+        .join('');
+    }
+
+    // ===== UI CONTROLS =====
+    document.getElementById('searchBox').addEventListener('input', search);
+    document.getElementById('searchBox').addEventListener('focus', search);
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#searchBox') && !e.target.closest('#searchResults')) {
+        hideSearch();
+      }
+    });
+
+    document.getElementById('closeNav').addEventListener('click', stopNav);
+    
+    document.getElementById('zoomInBtn').addEventListener('click', () => zoom(1.2));
+    document.getElementById('zoomOutBtn').addEventListener('click', () => zoom(0.8));
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      state.camera.zoom = 1;
+      state.camera.x = canvas.width / 2 - state.track.img.width / 2;
+      state.camera.y = canvas.height / 2 - state.track.img.height / 2;
+      state.ui.following = null;
+    });
+    
+    document.getElementById('gpsBtn').addEventListener('click', () => {
+      state.ui.gpsEnabled = !state.ui.gpsEnabled;
+      document.getElementById('gpsBtn').classList.toggle('active');
+    });
+    
+    document.getElementById('soundBtn').addEventListener('click', () => {
+      state.ui.soundEnabled = !state.ui.soundEnabled;
+      const btn = document.getElementById('soundBtn');
+      btn.textContent = state.ui.soundEnabled ? '🔊' : '🔇';
+      if (state.ui.soundEnabled) speak('Hlasová navigace zapnuta');
+    });
+    
+    document.getElementById('playersBtn').addEventListener('click', () => {
+      document.getElementById('playerList').classList.toggle('show');
+    });
+
+    // Canvas controls
+    canvas.addEventListener('mousedown', (e) => {
+      state.ui.dragging = true;
+      state.ui.lastDrag = { x: e.clientX, y: e.clientY };
+    });
+    
+    window.addEventListener('mouseup', () => {
+      state.ui.dragging = false;
+    });
+    
+    window.addEventListener('mousemove', (e) => {
+      if (state.ui.dragging) {
+        state.camera.x += e.clientX - state.ui.lastDrag.x;
+        state.camera.y += e.clientY - state.ui.lastDrag.y;
+        state.ui.lastDrag = { x: e.clientX, y: e.clientY };
+      }
+    });
+    
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      zoom(e.deltaY < 0 ? 1.1 : 0.9, e.clientX, e.clientY);
+    }, { passive: false });
+
+    // ===== HELPERS =====
+    function zoom(factor, mx, my) {
+      const x = mx || canvas.width / 2;
+      const y = my || canvas.height / 2;
+      const wx = (x - state.camera.x) / state.camera.zoom;
+      const wy = (y - state.camera.y) / state.camera.zoom;
+      const nz = Math.max(0.1, Math.min(state.camera.zoom * factor, 10));
+      state.camera.x = x - wx * nz;
+      state.camera.y = y - wy * nz;
+      state.camera.zoom = nz;
+    }
+
+    function loadTrack(code) {
+      const s = code.substring(0, 2);
+      state.track.config = getTrackConfig(s);
+      const img = new Image();
+      img.src = `tracks/track_${s}.png`;
+      img.onload = () => {
+        state.track.img = img;
+        document.getElementById('loader').classList.remove('show');
+      };
+    }
+
+    function calcPathDistance(path) {
+      let d = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        d += Math.hypot(path[i].x - path[i+1].x, path[i].y - path[i+1].y);
+      }
+      return d;
+    }
+
+    function formatTime(m) {
+      if (m < 1) return '1 min';
+      if (m >= 60) {
+        const h = Math.floor(m / 60);
+        const r = Math.round(m % 60);
+        return `${h} h ${r} min`;
+      }
+      return `${Math.round(m)} min`;
+    }
+
+    function formatDist(d) {
+      return d > 1000 ? `${(d/1000).toFixed(1)} km` : `${Math.round(d)} m`;
+    }
+
+    function getArrival(m) {
+      const n = new Date();
+      const f = new Date(n.getTime() + m * 60000);
+      return f.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function parseLFSColors(t) {
+      if (!t) return [{ text: '', color: '#000' }];
+      const s = [];
+      let c = '#000', curr = '';
+      for (let i = 0; i < t.length; i++) {
+        if (t[i] === '^' && i + 1 < t.length) {
+          const k = t[i + 1].toLowerCase();
+          if (LFS_COLORS[k]) {
+            if (curr) s.push({ text: curr, color: c });
+            c = LFS_COLORS[k];
+            curr = '';
+            i++;
+            continue;
+          }
+          if (['l', 'g', 'c', 'j', 'e', 't', 'b', 'h', 's', 'k'].includes(k)) {
+            i++;
+            continue;
           }
         }
-      });
+        curr += t[i];
+      }
+      if (curr) s.push({ text: curr, color: c });
+      return s;
     }
 
-    // Odstranění starých radio funkcí
-    function displaySearchResults(results) {
-        const div = document.getElementById('searchResults');
-        if(!results.length) { div.innerHTML='<div style="padding:10px;text-align:center;opacity:0.6">Nic nenalezeno</div>'; return; }
-        div.innerHTML = results.map(s => `
-            <div class="station-item" onclick="playCustomStation('${s.url}','${s.name}','${s.id}')">
-               <div style="font-weight:bold">📻 ${s.name}</div>
-               <div style="font-size:11px;opacity:0.7">🌍 ${s.country||'?'} | ${s.bitrate||0}kbps</div>
-            </div>
-        `).join('');
+    function lfsToHTML(t) {
+      return parseLFSColors(t).map(s => `<span style="color:${s.color}">${s.text}</span>`).join('');
     }
+
+    function stripColors(t) {
+      return t ? t.replace(/\^[0-9a-zA-Z]/g, '') : '';
+    }
+
+    // ===== START =====
+    loadTrack('BL1');
+    render();
   </script>
 </body>
 </html>
