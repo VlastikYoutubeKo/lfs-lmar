@@ -928,7 +928,7 @@
       if (!state.ui.soundEnabled || !window.speechSynthesis) return;
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'cs-CZ';
+      u.lang = 'en-US';
       u.rate = 1.1;
       window.speechSynthesis.speak(u);
     }
@@ -1020,7 +1020,7 @@
           
           if (dist < 25) {
             stopNav();
-            if (state.ui.soundEnabled) speak('Jste v cíli');
+            if (state.ui.soundEnabled) speak('You have arrived at your destination.');
           } else {
             state.voice.avgSpeed = state.voice.avgSpeed * 0.95 + me.speed * 0.05;
             const effSpeed = (state.voice.avgSpeed * 3.6 < 10) ? 13.8 : state.voice.avgSpeed;
@@ -1262,7 +1262,7 @@
       state.ui.soundEnabled = !state.ui.soundEnabled;
       const btn = document.getElementById('soundBtn');
       btn.textContent = state.ui.soundEnabled ? '🔊' : '🔇';
-      if (state.ui.soundEnabled) speak('Hlasová navigace zapnuta');
+      if (state.ui.soundEnabled) speak('Sound Navigation is on.');
     });
     
     document.getElementById('playersBtn').addEventListener('click', () => {
