@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Live For Speed InSim aplikace s real-time mapou a funkčním rádiem",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
