@@ -49,6 +49,218 @@
       color: #4a9eff;
     }
     
+    /* ===== DEBUG MODE ===== */
+    #map.debug-mode {
+      right: 400px;
+    }
+    
+    #debug-panel {
+      position: fixed;
+      right: -400px;
+      top: 0;
+      width: 400px;
+      height: 100vh;
+      background: #16213e;
+      border-left: 2px solid #00d4ff;
+      overflow-y: auto;
+      transition: right 0.3s;
+      z-index: 10000;
+    }
+    
+    #debug-panel.open {
+      right: 0;
+    }
+    
+    .debug-header {
+      background: #0f3460;
+      padding: 15px;
+      border-bottom: 2px solid #00d4ff;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .debug-header h2 {
+      color: #00d4ff;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    
+    .debug-controls {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .debug-btn {
+      flex: 1;
+      padding: 8px;
+      background: #00d4ff;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    
+    .debug-btn:hover {
+      background: #00a8cc;
+    }
+    
+    .debug-btn.close {
+      background: #ff3333;
+      color: #fff;
+    }
+    
+    .debug-section {
+      padding: 15px;
+      border-bottom: 1px solid #0f3460;
+    }
+    
+    .debug-section h3 {
+      color: #00d4ff;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    
+    .debug-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    
+    .debug-stat {
+      background: #0f3460;
+      padding: 8px;
+      border-radius: 4px;
+      text-align: center;
+    }
+    
+    .debug-stat-label {
+      font-size: 10px;
+      color: #888;
+    }
+    
+    .debug-stat-value {
+      font-size: 16px;
+      font-weight: bold;
+      color: #00d4ff;
+    }
+    
+    .debug-points {
+      max-height: 400px;
+      overflow-y: auto;
+      background: #0f3460;
+      padding: 8px;
+      border-radius: 4px;
+    }
+    
+    .debug-point {
+      padding: 6px;
+      margin-bottom: 4px;
+      border-radius: 3px;
+      border-left: 3px solid #555;
+      background: #1a2744;
+      font-size: 11px;
+    }
+    
+    .debug-point.turn {
+      border-left-color: #ff6b00;
+      background: #3a1f00;
+    }
+    
+    .debug-point.turn-slight {
+      border-left-color: #ffaa00;
+      background: #3a2700;
+    }
+    
+    .debug-point-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+    }
+    
+    .debug-point-index {
+      font-weight: bold;
+      color: #00d4ff;
+    }
+    
+    .debug-point-coords {
+      font-family: monospace;
+      color: #666;
+      font-size: 10px;
+    }
+    
+    .debug-turn-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: bold;
+      margin-left: 5px;
+    }
+    
+    .debug-turn-badge.left { background: #ff6b00; color: #fff; }
+    .debug-turn-badge.right { background: #0066ff; color: #fff; }
+    .debug-turn-badge.slight_left { background: #ffaa00; color: #000; }
+    .debug-turn-badge.slight_right { background: #00aaff; color: #000; }
+    
+    .debug-json {
+      background: #0f3460;
+      padding: 10px;
+      border-radius: 4px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .debug-json pre {
+      color: #0f0;
+      font-family: monospace;
+      font-size: 10px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    
+    .debug-toggle {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      z-index: 1001;
+      background: #00d4ff;
+      color: #000;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+    
+    .debug-toggle:hover {
+      background: #00a8cc;
+    }
+    
+    #debug-panel::-webkit-scrollbar,
+    .debug-points::-webkit-scrollbar,
+    .debug-json::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    #debug-panel::-webkit-scrollbar-track,
+    .debug-points::-webkit-scrollbar-track,
+    .debug-json::-webkit-scrollbar-track {
+      background: #0f3460;
+    }
+    
+    #debug-panel::-webkit-scrollbar-thumb,
+    .debug-points::-webkit-scrollbar-thumb,
+    .debug-json::-webkit-scrollbar-thumb {
+      background: #00d4ff;
+      border-radius: 4px;
+    }
+    
+    
     #searchBox {
       flex: 1;
       max-width: 500px;
@@ -357,6 +569,59 @@
     <div id="playerItems"></div>
   </div>
   
+  <!-- DEBUG TOGGLE BUTTON -->
+  <button class="debug-toggle" id="debugToggle">🔍 DEBUG</button>
+  
+  <!-- DEBUG PANEL -->
+  <div id="debug-panel">
+    <div class="debug-header">
+      <h2>🔍 Path Debug Mode</h2>
+      <div class="debug-controls">
+        <button class="debug-btn" id="debugAnalyze">📊 Analyzovat aktuální trasu</button>
+        <button class="debug-btn close" id="debugClose">✕</button>
+      </div>
+    </div>
+    
+    <div class="debug-section" id="debugStatsSection" style="display:none;">
+      <h3>📊 Statistika</h3>
+      <div class="debug-stats">
+        <div class="debug-stat">
+          <div class="debug-stat-label">Body</div>
+          <div class="debug-stat-value" id="debugTotalPoints">0</div>
+        </div>
+        <div class="debug-stat">
+          <div class="debug-stat-label">Vzdálenost</div>
+          <div class="debug-stat-value" id="debugTotalDistance">0m</div>
+        </div>
+        <div class="debug-stat">
+          <div class="debug-stat-label">Zatáčky</div>
+          <div class="debug-stat-value" id="debugTotalTurns">0</div>
+        </div>
+        <div class="debug-stat">
+          <div class="debug-stat-label">Max úhel</div>
+          <div class="debug-stat-value" id="debugMaxAngle">0°</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="debug-section" id="debugPointsSection" style="display:none;">
+      <h3>📝 Body trasy</h3>
+      <div class="debug-points" id="debugPointsList"></div>
+    </div>
+    
+    <div class="debug-section" id="debugJsonSection" style="display:none;">
+      <h3>📋 JSON Output</h3>
+      <div class="debug-json">
+        <pre id="debugJsonOutput"></pre>
+      </div>
+    </div>
+    
+    <div class="debug-section" style="text-align: center; color: #666; padding: 40px 20px;">
+      <p style="margin-bottom: 10px;">👆 Vyber hráče a destinaci na mapě</p>
+      <p style="font-size: 12px;">Pak klikni "Analyzovat aktuální trasu"</p>
+    </div>
+  </div>
+  
   <!-- LOADER -->
   <div id="loader">Načítám navigační graf...</div>
 
@@ -546,6 +811,163 @@
     document.getElementById('loader').classList.add('show');
     worker.postMessage({ type: 'BUILD_GRAPH', payload: TC_LOCATIONS });
 
+    // ===== LISTEN FOR DEBUG REQUESTS =====
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'DEBUG_ROUTE') {
+        const { from, to, destName } = event.data;
+        
+        console.log('🔍 DEBUG MODE: Calculating route from', from, 'to', to);
+        
+        // Najdi nejbližší nav bod k FROM
+        let minDist = Infinity;
+        let startNode = null;
+        navPoints.forEach(pt => {
+          const d = Math.hypot(pt.x - from.x, pt.y - from.y);
+          if (d < minDist) {
+            minDist = d;
+            startNode = pt;
+          }
+        });
+        
+        // Najdi nejbližší nav bod k TO
+        minDist = Infinity;
+        let endNode = null;
+        navPoints.forEach(pt => {
+          const d = Math.hypot(pt.x - to.x, pt.y - to.y);
+          if (d < minDist) {
+            minDist = d;
+            endNode = pt;
+          }
+        });
+        
+        if (!startNode || !endNode) {
+          console.error('❌ Could not find nav points');
+          return;
+        }
+        
+        console.log('📍 Start node:', startNode, 'End node:', endNode);
+        
+        // Vypočti trasu
+        worker.postMessage({
+          type: 'FIND_PATH',
+          start: startNode,
+          end: endNode
+        });
+        
+        // Počkej na výsledek
+        const originalHandler = worker.onmessage;
+        worker.onmessage = (e) => {
+          if (e.data.type === 'PATH_FOUND') {
+            const rawPath = e.data.payload;
+            
+            if (!rawPath || rawPath.length < 2) {
+              console.error('❌ No path found');
+              return;
+            }
+            
+            // SMOOTHING
+            const smoothedPath = [];
+            for (let i = 0; i < rawPath.length - 1; i++) {
+              smoothedPath.push(rawPath[i]);
+              
+              const dx = rawPath[i+1].x - rawPath[i].x;
+              const dy = rawPath[i+1].y - rawPath[i].y;
+              const segmentDist = Math.hypot(dx, dy);
+              
+              if (segmentDist > 10) {
+                const numIntermediate = Math.floor(segmentDist / 10);
+                for (let j = 1; j <= numIntermediate; j++) {
+                  const t = j / (numIntermediate + 1);
+                  smoothedPath.push({
+                    x: rawPath[i].x + dx * t,
+                    y: rawPath[i].y + dy * t
+                  });
+                }
+              }
+            }
+            smoothedPath.push(rawPath[rawPath.length - 1]);
+            
+            console.log(`📍 Path smoothing: ${rawPath.length} → ${smoothedPath.length} points`);
+            
+            // Analyzuj každý bod (použij existující funkci detectTurn)
+            const analysis = [];
+            const WIN = 4;
+            
+            for (let i = 0; i < smoothedPath.length; i++) {
+              if (i >= WIN && i < smoothedPath.length - WIN) {
+                // Použij inline detekci místo volání funkce
+                let dist = 0;
+                for (let j = 1; j <= i; j++) {
+                  dist += Math.hypot(smoothedPath[j].x - smoothedPath[j-1].x, smoothedPath[j].y - smoothedPath[j-1].y);
+                }
+                
+                if (dist > 150) {
+                  analysis[i] = { skip: 'too_far', dist };
+                } else if (dist < 50) {
+                  analysis[i] = { skip: 'too_close', dist };
+                } else {
+                  let before = 0, after = 0, cntB = 0, cntA = 0;
+                  
+                  for (let j = Math.max(1, i - WIN); j < i; j++) {
+                    const dx = smoothedPath[j].x - smoothedPath[j-1].x;
+                    const dy = smoothedPath[j].y - smoothedPath[j-1].y;
+                    const d = Math.hypot(dx, dy);
+                    if (d > 5) { before += Math.atan2(dy, dx); cntB++; }
+                  }
+                  
+                  for (let j = i; j < Math.min(i + WIN, smoothedPath.length - 1); j++) {
+                    const dx = smoothedPath[j+1].x - smoothedPath[j].x;
+                    const dy = smoothedPath[j+1].y - smoothedPath[j].y;
+                    const d = Math.hypot(dx, dy);
+                    if (d > 5) { after += Math.atan2(dy, dx); cntA++; }
+                  }
+                  
+                  if (cntB === 0 || cntA === 0) {
+                    analysis[i] = { skip: 'no_segments', dist };
+                  } else {
+                    before /= cntB;
+                    after /= cntA;
+                    
+                    let diff = after - before;
+                    while (diff > Math.PI) diff -= 2 * Math.PI;
+                    while (diff < -Math.PI) diff += 2 * Math.PI;
+                    
+                    const deg = Math.abs(diff * 180 / Math.PI);
+                    
+                    if (deg > 45) {
+                      let turnType;
+                      if (deg < 85) {
+                        turnType = diff > 0 ? 'slight_left' : 'slight_right';
+                      } else {
+                        turnType = diff > 0 ? 'left' : 'right';
+                      }
+                      analysis[i] = { type: turnType, dist, angle: deg, detected: true };
+                    } else {
+                      analysis[i] = { skip: 'angle_too_small', dist, angle: deg };
+                    }
+                  }
+                }
+              } else {
+                analysis[i] = { skip: 'boundary' };
+              }
+            }
+            
+            // Pošli zpátky do debug okna
+            window.parent.postMessage({
+              type: 'DEBUG_PATH',
+              path: smoothedPath,
+              analysis: analysis
+            }, '*');
+            
+            console.log('✅ Sent path analysis to debug window');
+          }
+          
+          // Restore original handler
+          worker.onmessage = originalHandler;
+        };
+      }
+    });
+
     worker.onmessage = (e) => {
       if (e.data.type === 'GRAPH_READY') {
         document.getElementById('loader').classList.remove('show');
@@ -553,8 +975,35 @@
       else if (e.data.type === 'PATH_FOUND') {
         workerBusy = false;
         if (e.data.payload && e.data.payload.length > 1) {
-          state.nav.path = e.data.payload;
-          state.nav.distance = calcPathDistance(e.data.payload);
+          // SMOOTHING: Přidáme mezibody pro lepší detekci zatáček
+          const rawPath = e.data.payload;
+          const smoothedPath = [];
+          
+          for (let i = 0; i < rawPath.length - 1; i++) {
+            smoothedPath.push(rawPath[i]);
+            
+            // Přidej mezibody každých 10m
+            const dx = rawPath[i+1].x - rawPath[i].x;
+            const dy = rawPath[i+1].y - rawPath[i].y;
+            const segmentDist = Math.hypot(dx, dy);
+            
+            if (segmentDist > 10) {
+              const numIntermediate = Math.floor(segmentDist / 10);
+              for (let j = 1; j <= numIntermediate; j++) {
+                const t = j / (numIntermediate + 1);
+                smoothedPath.push({
+                  x: rawPath[i].x + dx * t,
+                  y: rawPath[i].y + dy * t
+                });
+              }
+            }
+          }
+          smoothedPath.push(rawPath[rawPath.length - 1]);
+          
+          console.log(`📍 Path smoothing: ${rawPath.length} → ${smoothedPath.length} points`);
+          
+          state.nav.path = smoothedPath;
+          state.nav.distance = calcPathDistance(smoothedPath);
         }
       }
     };
@@ -627,66 +1076,94 @@
       document.getElementById('hud').classList.remove('active');
     }
 
-    // ===== TURN DETECTION =====
+    // ===== TURN DETECTION - NOVÝ ALGORITMUS =====
     function detectTurn(path) {
-      if (!path || path.length < 10) return null;
-
-      const WIN = 4; // Větší okno = stabilnější detekce
+      if (!path || path.length < 5) return null;
       
-      for (let i = WIN; i < Math.min(path.length - WIN - 1, 40); i++) {
-        let dist = 0;
-        for (let j = 1; j <= i; j++) {
-          dist += Math.hypot(path[j].x - path[j-1].x, path[j].y - path[j-1].y);
+      // Najdi první bod ve vzdálenosti 50-150m
+      let targetIdx = null;
+      let dist = 0;
+      
+      for (let i = 1; i < Math.min(path.length, 50); i++) {
+        dist += Math.hypot(path[i].x - path[i-1].x, path[i].y - path[i-1].y);
+        
+        if (dist >= 50 && dist <= 150) {
+          targetIdx = i;
+          break;
         }
         
         if (dist > 150) break;
-        if (dist < 50) continue;
-        
-        let before = 0, after = 0, cntB = 0, cntA = 0;
-        
-        // Průměrný směr PŘED odbočkou
-        for (let j = Math.max(1, i - WIN); j < i; j++) {
-          const dx = path[j].x - path[j-1].x;
-          const dy = path[j].y - path[j-1].y;
-          const d = Math.hypot(dx, dy);
-          if (d > 5) { before += Math.atan2(dy, dx); cntB++; }
-        }
-        
-        // Průměrný směr PO odbočce
-        for (let j = i; j < Math.min(i + WIN, path.length - 1); j++) {
-          const dx = path[j+1].x - path[j].x;
-          const dy = path[j+1].y - path[j].y;
-          const d = Math.hypot(dx, dy);
-          if (d > 5) { after += Math.atan2(dy, dx); cntA++; }
-        }
-        
-        if (cntB === 0 || cntA === 0) continue;
-        
-        before /= cntB;
-        after /= cntA;
-        
-        let diff = after - before;
-        while (diff > Math.PI) diff -= 2 * Math.PI;
-        while (diff < -Math.PI) diff += 2 * Math.PI;
-        
-        const deg = Math.abs(diff * 180 / Math.PI);
-        
-        // PŘÍSNĚJŠÍ: 60° místo 50° (méně false positives)
-        if (deg > 60) {
-          // Určit typ odbočky podle úhlu
-          let turnType;
-          if (deg < 100) {
-            // Mírná odbočka (60-100°)
-            turnType = diff > 0 ? 'slight_left' : 'slight_right';
-          } else {
-            // Ostrá odbočka (100°+)
-            turnType = diff > 0 ? 'left' : 'right';
-          }
-          
-          return { type: turnType, dist, angle: deg };
+      }
+      
+      if (!targetIdx || targetIdx < 3 || targetIdx >= path.length - 3) {
+        return null;
+      }
+      
+      // Spočítej směr PŘED zatáčkou (průměr 3 bodů před)
+      let beforeAngle = 0;
+      let beforeCount = 0;
+      for (let i = Math.max(0, targetIdx - 4); i < targetIdx - 1; i++) {
+        const dx = path[i+1].x - path[i].x;
+        const dy = path[i+1].y - path[i].y;
+        if (Math.hypot(dx, dy) > 1) {
+          beforeAngle += Math.atan2(dy, dx);
+          beforeCount++;
         }
       }
-      return null;
+      if (beforeCount === 0) return null;
+      beforeAngle /= beforeCount;
+      
+      // Spočítej směr PO zatáčce (průměr 3 bodů po)
+      let afterAngle = 0;
+      let afterCount = 0;
+      for (let i = targetIdx + 1; i < Math.min(targetIdx + 5, path.length - 1); i++) {
+        const dx = path[i+1].x - path[i].x;
+        const dy = path[i+1].y - path[i].y;
+        if (Math.hypot(dx, dy) > 1) {
+          afterAngle += Math.atan2(dy, dx);
+          afterCount++;
+        }
+      }
+      if (afterCount === 0) return null;
+      afterAngle /= afterCount;
+      
+      // Vypočti rozdíl úhlů
+      let angleDiff = afterAngle - beforeAngle;
+      
+      // Normalizuj do -PI až PI
+      while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+      while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+      
+      const angleDeg = Math.abs(angleDiff * 180 / Math.PI);
+      
+      // Je to zatáčka? (alespoň 40° - ignoruje mírné záhyby silnice)
+      if (angleDeg < 40) {
+        return null;
+      }
+      
+      // Urči typ zatáčky
+      let turnType;
+      const isLeft = angleDiff > 0;
+      
+      if (angleDeg < 60) {
+        // Mírná zatáčka (40-70°)
+        turnType = isLeft ? 'slight_left' : 'slight_right';
+      } else if (angleDeg < 120) {
+        // Normální zatáčka (70-120°)
+        turnType = isLeft ? 'left' : 'right';
+      } else {
+        // Ostrá zatáčka (120°+)
+        turnType = isLeft ? 'sharp_left' : 'sharp_right';
+      }
+      
+      console.log(`🔄 TURN DETECTED: ${turnType} at ${dist.toFixed(0)}m (${angleDeg.toFixed(1)}°)`);
+      
+      return {
+        type: turnType,
+        dist: dist,
+        angle: angleDeg,
+        point: path[targetIdx]
+      };
     }
 
     // ===== VOICE =====
@@ -798,7 +1275,7 @@
             document.getElementById('arrival').textContent = getArrival(timeMin);
             document.getElementById('targetName').textContent = stripColors(state.nav.target.name);
 
-            // Turn detection & voice guidance (Google Maps style)
+            // Turn detection & voice guidance
             const turn = detectTurn(state.nav.path);
             const icon = document.getElementById('turnIcon');
             
@@ -808,54 +1285,60 @@
               else if (turn.type === 'slight_right') icon.textContent = '↗️';
               else if (turn.type === 'left') icon.textContent = '⬅️';
               else if (turn.type === 'right') icon.textContent = '➡️';
+              else if (turn.type === 'sharp_left') icon.textContent = '↩️';
+              else if (turn.type === 'sharp_right') icon.textContent = '↪️';
               
-              // GOOGLE MAPS STYL - Více hlášení podle vzdálenosti
+              // Hlasová navigace - JEDNODUŠŠÍ SYSTÉM
               if (state.ui.soundEnabled) {
                 const now = Date.now();
-                const timeSinceLastAnnouncement = now - state.voice.lastTurnTime;
+                const timeSince = now - state.voice.lastTurnTime;
+                const d = Math.round(turn.dist);
                 
-                // Určit co říct podle vzdálenosti
+                const turnText = {
+                  'slight_left': 'mírně vlevo',
+                  'slight_right': 'mírně vpravo', 
+                  'left': 'vlevo',
+                  'right': 'vpravo',
+                  'sharp_left': 'ostře vlevo',
+                  'sharp_right': 'ostře vpravo'
+                }[turn.type] || 'vpřed';
+                
                 let shouldSpeak = false;
                 let message = '';
                 
-                const d = Math.round(turn.dist);
-                const turnText = {
-                  'slight_left': 'mírně vlevo',
-                  'slight_right': 'mírně vpravo',
-                  'left': 'vlevo',
-                  'right': 'vpravo'
-                }[turn.type];
-                
-                // 1. Předběžné varování (120-150m)
-                if (d >= 120 && d <= 150 && (!state.voice.lastTurn || state.voice.lastTurn !== `pre_${turn.type}`)) {
+                // Hlášení podle vzdálenosti:
+                // 1. První varování: 100-120m
+                if (d >= 100 && d <= 120 && timeSince > 10000) {
                   shouldSpeak = true;
                   message = `Za ${d} metrů odbočte ${turnText}`;
-                  state.voice.lastTurn = `pre_${turn.type}`;
+                  state.voice.lastTurn = `warn1_${turn.type}_${d}`;
                   state.voice.lastTurnTime = now;
                 }
-                // 2. Hlavní instrukce (80-100m)
-                else if (d >= 80 && d < 100 && (!state.voice.lastTurn || !state.voice.lastTurn.startsWith('main')) && timeSinceLastAnnouncement > 8000) {
+                // 2. Druhé varování: 70-90m
+                else if (d >= 70 && d < 90 && timeSince > 7000) {
                   shouldSpeak = true;
-                  message = `Za ${d} metrů odbočte ${turnText}`;
-                  state.voice.lastTurn = `main_${turn.type}`;
+                  message = `Za ${d} metrů ${turnText}`;
+                  state.voice.lastTurn = `warn2_${turn.type}_${d}`;
                   state.voice.lastTurnTime = now;
                 }
-                // 3. Blízká instrukce (50-60m)
-                else if (d >= 50 && d < 60 && (!state.voice.lastTurn || !state.voice.lastTurn.startsWith('near')) && timeSinceLastAnnouncement > 6000) {
+                // 3. Poslední varování: 40-60m
+                else if (d >= 40 && d < 60 && timeSince > 5000) {
                   shouldSpeak = true;
-                  message = `Připravte se odbočit ${turnText}`;
-                  state.voice.lastTurn = `near_${turn.type}`;
+                  message = `Odbočte ${turnText}`;
+                  state.voice.lastTurn = `final_${turn.type}_${d}`;
                   state.voice.lastTurnTime = now;
                 }
                 
                 if (shouldSpeak) {
+                  console.log(`🔊 VOICE: "${message}" (dist: ${d}m, angle: ${turn.angle.toFixed(1)}°)`);
                   speak(message);
                 }
               }
             } else {
               icon.textContent = '⬆️';
-              // Reset když už není žádná odbočka blízko
-              if (state.nav.distance > 200) {
+              // Reset po projetí zatáčky
+              if (state.nav.distance > 200 && state.voice.lastTurn) {
+                console.log('✅ Turn passed, resetting voice state');
                 state.voice.lastTurn = null;
               }
             }
@@ -1132,6 +1615,250 @@
 
     function stripColors(t) {
       return t ? t.replace(/\^[0-9a-zA-Z]/g, '') : '';
+    }
+
+    // ===== DEBUG MODE =====
+    let debugMode = false;
+    let debugAnalysis = null;
+    
+    document.getElementById('debugToggle').addEventListener('click', () => {
+      debugMode = !debugMode;
+      const panel = document.getElementById('debug-panel');
+      const map = document.getElementById('map');
+      
+      if (debugMode) {
+        panel.classList.add('open');
+        map.classList.add('debug-mode');
+      } else {
+        panel.classList.remove('open');
+        map.classList.remove('debug-mode');
+      }
+    });
+    
+    document.getElementById('debugClose').addEventListener('click', () => {
+      debugMode = false;
+      document.getElementById('debug-panel').classList.remove('open');
+      document.getElementById('map').classList.remove('debug-mode');
+    });
+    
+    document.getElementById('debugAnalyze').addEventListener('click', () => {
+      console.log('🔍 DEBUG BUTTON CLICKED');
+      console.log('state.nav.path:', state.nav.path);
+      console.log('state.nav.path length:', state.nav.path ? state.nav.path.length : 'null');
+      
+      if (!state.nav.path || state.nav.path.length === 0) {
+        alert('❌ Žádná aktivní trasa! Nejprve vyber hráče a destinaci.');
+        console.error('❌ No active path');
+        return;
+      }
+      
+      console.log('🔍 Analyzing current path...');
+      try {
+        analyzeCurrentPath();
+        console.log('✅ Analysis complete');
+      } catch (err) {
+        console.error('❌ Analysis error:', err);
+        alert('Chyba při analýze: ' + err.message);
+      }
+    });
+    
+    function analyzeCurrentPath() {
+      const path = state.nav.path;
+      
+      console.log('📍 analyzeCurrentPath called');
+      console.log('📍 Path object:', path);
+      console.log('📍 Path length:', path ? path.length : 'null');
+      
+      if (!path || path.length < 2) {
+        alert('❌ Neplatná trasa!');
+        console.error('❌ Invalid path');
+        return;
+      }
+      
+      console.log('📍 Starting analysis of', path.length, 'points');
+      
+      // Analyzuj každý bod
+      const analysis = [];
+      const WIN = 4;
+      let totalDistance = 0;
+      let turnCount = 0;
+      let maxAngle = 0;
+      
+      for (let i = 0; i < path.length; i++) {
+        if (i > 0) {
+          totalDistance += Math.hypot(
+            path[i].x - path[i-1].x,
+            path[i].y - path[i-1].y
+          );
+        }
+        
+        if (i >= WIN && i < path.length - WIN) {
+          let dist = 0;
+          for (let j = 1; j <= i; j++) {
+            dist += Math.hypot(path[j].x - path[j-1].x, path[j].y - path[j-1].y);
+          }
+          
+          if (dist > 150) {
+            analysis[i] = { skip: 'too_far', dist };
+          } else if (dist < 50) {
+            analysis[i] = { skip: 'too_close', dist };
+          } else {
+            let before = 0, after = 0, cntB = 0, cntA = 0;
+            
+            for (let j = Math.max(1, i - WIN); j < i; j++) {
+              const dx = path[j].x - path[j-1].x;
+              const dy = path[j].y - path[j-1].y;
+              const d = Math.hypot(dx, dy);
+              if (d > 5) { before += Math.atan2(dy, dx); cntB++; }
+            }
+            
+            for (let j = i; j < Math.min(i + WIN, path.length - 1); j++) {
+              const dx = path[j+1].x - path[j].x;
+              const dy = path[j+1].y - path[j].y;
+              const d = Math.hypot(dx, dy);
+              if (d > 5) { after += Math.atan2(dy, dx); cntA++; }
+            }
+            
+            if (cntB === 0 || cntA === 0) {
+              analysis[i] = { skip: 'no_segments', dist };
+            } else {
+              before /= cntB;
+              after /= cntA;
+              
+              let diff = after - before;
+              while (diff > Math.PI) diff -= 2 * Math.PI;
+              while (diff < -Math.PI) diff += 2 * Math.PI;
+              
+              const deg = Math.abs(diff * 180 / Math.PI);
+              
+              if (deg > 45) {
+                let turnType;
+                if (deg < 85) {
+                  turnType = diff > 0 ? 'slight_left' : 'slight_right';
+                } else {
+                  turnType = diff > 0 ? 'left' : 'right';
+                }
+                analysis[i] = { type: turnType, dist, angle: deg, detected: true };
+                turnCount++;
+                maxAngle = Math.max(maxAngle, deg);
+              } else {
+                analysis[i] = { skip: 'angle_too_small', dist, angle: deg };
+              }
+            }
+          }
+        } else {
+          analysis[i] = { skip: 'boundary' };
+        }
+      }
+      
+      console.log('📊 Analysis results:');
+      console.log('  - Total distance:', totalDistance.toFixed(2) + 'm');
+      console.log('  - Turn count:', turnCount);
+      console.log('  - Max angle:', maxAngle.toFixed(1) + '°');
+      
+      debugAnalysis = { path, analysis, totalDistance, turnCount, maxAngle };
+      
+      console.log('📍 Calling displayDebugAnalysis...');
+      displayDebugAnalysis();
+    }
+    
+    function displayDebugAnalysis() {
+      console.log('🖥️ displayDebugAnalysis called');
+      
+      if (!debugAnalysis) {
+        console.error('❌ No debugAnalysis data!');
+        return;
+      }
+      
+      const { path, analysis, totalDistance, turnCount, maxAngle } = debugAnalysis;
+      console.log('🖥️ Displaying analysis for', path.length, 'points');
+      
+      // Statistiky
+      console.log('🖥️ Setting stats...');
+      document.getElementById('debugStatsSection').style.display = 'block';
+      document.getElementById('debugTotalPoints').textContent = path.length;
+      document.getElementById('debugTotalDistance').textContent = totalDistance.toFixed(0) + 'm';
+      document.getElementById('debugTotalTurns').textContent = turnCount;
+      document.getElementById('debugMaxAngle').textContent = maxAngle.toFixed(1) + '°';
+      console.log('✅ Stats set');
+      
+      // Body
+      console.log('🖥️ Building points list...');
+      document.getElementById('debugPointsSection').style.display = 'block';
+      const pointsList = document.getElementById('debugPointsList');
+      pointsList.innerHTML = '';
+      
+      let pointsRendered = 0;
+      
+      path.forEach((p, i) => {
+        const result = analysis[i];
+        const div = document.createElement('div');
+        
+        let className = 'debug-point';
+        if (result && result.detected) {
+          className += result.type.includes('slight') ? ' turn-slight' : ' turn';
+        }
+        
+        div.className = className;
+        
+        let distFromStart = 0;
+        for (let j = 1; j <= i; j++) {
+          distFromStart += Math.hypot(path[j].x - path[j-1].x, path[j].y - path[j-1].y);
+        }
+        
+        let content = `
+          <div class="debug-point-header">
+            <span class="debug-point-index">#${i}</span>
+            <span style="color:#aaa;font-size:11px;">${distFromStart.toFixed(1)}m</span>
+        `;
+        
+        if (result && result.detected) {
+          content += `<span class="debug-turn-badge ${result.type}">${result.type}</span>`;
+        }
+        
+        content += `
+          </div>
+          <div class="debug-point-coords">x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}</div>
+        `;
+        
+        if (result) {
+          if (result.detected) {
+            content += `<div style="margin-top:3px;font-size:11px;color:#00d4ff;">🔄 ${result.angle.toFixed(1)}°</div>`;
+          } else if (result.skip) {
+            content += `<div style="margin-top:3px;font-size:10px;color:#666;">⏭️ ${result.skip}${result.angle ? ` (${result.angle.toFixed(1)}°)` : ''}</div>`;
+          }
+        }
+        
+        div.innerHTML = content;
+        pointsList.appendChild(div);
+        pointsRendered++;
+      });
+      
+      console.log('✅ Points rendered:', pointsRendered);
+      
+      // JSON
+      console.log('🖥️ Building JSON output...');
+      document.getElementById('debugJsonSection').style.display = 'block';
+      const output = {
+        total_points: path.length,
+        total_distance: totalDistance.toFixed(2) + 'm',
+        turns_detected: turnCount,
+        max_angle: maxAngle.toFixed(1) + '°',
+        turns: analysis.filter(a => a && a.detected).map((a, idx) => {
+          const actualIdx = analysis.indexOf(a);
+          return {
+            index: actualIdx,
+            type: a.type,
+            angle: a.angle.toFixed(1) + '°',
+            distance: a.dist.toFixed(1) + 'm',
+            coords: { x: path[actualIdx].x.toFixed(2), y: path[actualIdx].y.toFixed(2) }
+          };
+        })
+      };
+      
+      document.getElementById('debugJsonOutput').textContent = JSON.stringify(output, null, 2);
+      
+      console.log('✅ Debug analysis display complete:', output);
     }
 
     // ===== START =====
