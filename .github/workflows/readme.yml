@@ -56,7 +56,7 @@ jobs:
       - name: Install dependencies
         run: npm install --production
 
-      # 2. GENERATE AI NOTES (S opravou kódování pro Emojis)
+# 2. GENERATE AI NOTES (Oprava syntaxe pro PowerShell)
       - name: Create Release Notes Script
         shell: powershell
         run: |
@@ -64,7 +64,7 @@ jobs:
           import { execSync } from 'child_process';
           import fs from 'fs';
 
-          const GEMINI_MODEL = 'gemini-2.0-flash-exp'; // Rychlejší a chytřejší model
+          const GEMINI_MODEL = 'gemini-3-pro-preview';
           const OUTPUT_FILE = 'release_body.md';
 
           console.log('--- STARTING LOG ANALYSIS ---');
@@ -72,19 +72,14 @@ jobs:
           let commits = '';
           let diff = '';
 
-          // Logika pro získání historie
           try {
-            // Zkusíme najít předchozí tag
             const prevTag = execSync('git describe --tags --abbrev=0 HEAD^', { encoding: 'utf8' }).trim();
             console.log('Previous tag: ' + prevTag);
-            
-            // Vezmeme commity mezi předchozím tagem a teď
             const range = prevTag + '..HEAD';
             commits = execSync('git log ' + range + ' --pretty=format:"- %s (%an)"', { encoding: 'utf8' }).toString();
             diff = execSync('git diff ' + range + ' --stat -- ":!package-lock.json" ":!node_modules/*"', { encoding: 'utf8' }).toString();
           } catch (e) {
-            console.log('Could not determine tag range, using fallback (last 15 commits).');
-            // Fallback: Posledních 15 commitů, pokud selže logika tagů (např. po resetu)
+            console.log('Could not determine tag range, using fallback.');
             try {
                 commits = execSync('git log -n 15 --pretty=format:"- %s (%an)"', { encoding: 'utf8' }).toString();
             } catch (err) { commits = 'No git history available.'; }
@@ -92,23 +87,19 @@ jobs:
 
           const tagName = process.env.TAG_NAME || 'Unknown Version';
           
-          const prompt = \`You are a Release Manager. Write release notes for \${tagName}.
-          
-          COMMITS HISTORY:
-          \${commits}
-          
-          DIFF STATS:
-          \${diff}
-          
-          INSTRUCTIONS:
-          1. Start with headline: # Release Notes - \${tagName}
-          2. Categorize changes into:
-             ## 🚀 New Features
-             ## 🐞 Bug Fixes
-             ## 🔧 Improvements
-          3. Use standard Unicode Emojis.
-          4. Be concise. If the commit history is messy or contains "Update bez hudby", try to summarize what actually changed in the code structure if possible, or mention "Maintenance update".
-          5. Output ONLY the Markdown.\`;
+          // ZDE BYLA CHYBA: Nahrazeno klasickými uvozovkami a plusy (+)
+          const prompt = "You are a Release Manager. Write release notes for " + tagName + ".\n\n" +
+          "COMMITS HISTORY:\n" + commits + "\n\n" +
+          "DIFF STATS:\n" + diff + "\n\n" +
+          "INSTRUCTIONS:\n" +
+          "1. Start with headline: # Release Notes - " + tagName + "\n" +
+          "2. Categorize changes into:\n" +
+          "   ## 🚀 New Features\n" +
+          "   ## 🐞 Bug Fixes\n" +
+          "   ## 🔧 Improvements\n" +
+          "3. Use standard Unicode Emojis.\n" +
+          "4. Be concise. Summarize technical changes clearly.\n" +
+          "5. Output ONLY the Markdown.";
 
           async function run() {
             if (!process.env.GEMINI_API_KEY) { 
@@ -128,7 +119,6 @@ jobs:
               const data = await response.json();
               if (data.candidates && data.candidates[0].content) {
                 const text = data.candidates[0].content.parts[0].text;
-                // Vynucení UTF-8 zápisu
                 fs.writeFileSync(OUTPUT_FILE, text, 'utf8');
                 console.log('Notes generated successfully.');
               } else {
@@ -144,7 +134,6 @@ jobs:
           run();
           "@
           
-          # Uložení skriptu s UTF8 BOM pro PowerShell kompatibilitu
           $scriptContent | Out-File -FilePath "release-notes.js" -Encoding utf8
 
       - name: Generate AI Notes
