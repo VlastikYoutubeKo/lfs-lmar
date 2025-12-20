@@ -17,62 +17,135 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Důležité pro historii commitů
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
       
+      # 1. UPDATE README V REPOZITÁŘI (Trvalá změna)
+      - name: Update README Version in Repo
+        shell: powershell
+        run: |
+          $version = "${{ github.ref_name }}"
+          Write-Host "Updating README to version: $version"
+          
+          # Přečíst a nahradit
+          $content = Get-Content "README.md" -Raw -Encoding UTF8
+          $newContent = $content -replace '\{\{VERSION\}\}', $version
+          
+          # Uložit zpět
+          Set-Content -Path "README.md" -Value $newContent -Encoding UTF8
+          
+          # Nastavit Git
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          
+          # Commit a Push změn zpět do main
+          # (Používáme try/catch pro případ, že se nic nezměnilo)
+          try {
+            git add README.md
+            git commit -m "chore: update readme version to $version [skip ci]"
+            git push origin HEAD:main
+            Write-Host "README updated and pushed to repo."
+          } catch {
+            Write-Host "No changes to commit or push failed."
+          }
+
       - name: Install dependencies
-        # Nainstalujeme moduly, aby byly součástí ZIPu a uživatel to nemusel řešit
         run: npm install --production
-      
-      # --- AI RELEASE NOTES (Beze změny) ---
+
+      # 2. GENERATE AI NOTES (S opravou kódování pro Emojis)
       - name: Create Release Notes Script
         shell: powershell
         run: |
           $scriptContent = @"
           import { execSync } from 'child_process';
           import fs from 'fs';
-          const GEMINI_MODEL = 'gemini-3-flash-preview'; 
-          try { execSync('git fetch --tags --force'); } catch (e) {}
+
+          const GEMINI_MODEL = 'gemini-2.0-flash-exp'; // Rychlejší a chytřejší model
+          const OUTPUT_FILE = 'release_body.md';
+
+          console.log('--- STARTING LOG ANALYSIS ---');
+
           let commits = '';
           let diff = '';
+
+          // Logika pro získání historie
           try {
-            const prevTag = execSync('git describe --tags --abbrev=0 HEAD^').toString().trim();
+            // Zkusíme najít předchozí tag
+            const prevTag = execSync('git describe --tags --abbrev=0 HEAD^', { encoding: 'utf8' }).trim();
+            console.log('Previous tag: ' + prevTag);
+            
+            // Vezmeme commity mezi předchozím tagem a teď
             const range = prevTag + '..HEAD';
-            commits = execSync('git log ' + range + ' --pretty=format:"- %s (%an)"').toString();
-            diff = execSync('git diff ' + range + ' --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*"').toString();
-          } catch (e) { commits = 'Initial release or error fetching history.'; }
-          
-          if (!commits) commits = 'No commit history available.';
+            commits = execSync('git log ' + range + ' --pretty=format:"- %s (%an)"', { encoding: 'utf8' }).toString();
+            diff = execSync('git diff ' + range + ' --stat -- ":!package-lock.json" ":!node_modules/*"', { encoding: 'utf8' }).toString();
+          } catch (e) {
+            console.log('Could not determine tag range, using fallback (last 15 commits).');
+            // Fallback: Posledních 15 commitů, pokud selže logika tagů (např. po resetu)
+            try {
+                commits = execSync('git log -n 15 --pretty=format:"- %s (%an)"', { encoding: 'utf8' }).toString();
+            } catch (err) { commits = 'No git history available.'; }
+          }
 
           const tagName = process.env.TAG_NAME || 'Unknown Version';
-          const prompt = 'You are a Release Manager. Write release notes for ' + tagName + ' based on the commits below.\\n\\n' +
-            'COMMITS:\\n' + commits + '\\n\\n' +
-            'STATS:\\n' + diff + '\\n\\n' +
-            'STRICT OUTPUT FORMAT RULES:\\n' +
-            '1. Start with title: # Release Notes - ' + tagName + '\\n' +
-            '2. Section 1: ## 🚀 Improvements\\n' +
-            '3. Section 2: ## 🐞 Bug Fixes\\n' +
-            '4. Section 3: ## 🔧 Technical Notes\\n' +
-            '5. Formatting: Use bullet points.\\n' +
-            '6. Do NOT include intro/footer.';
+          
+          const prompt = \`You are a Release Manager. Write release notes for \${tagName}.
+          
+          COMMITS HISTORY:
+          \${commits}
+          
+          DIFF STATS:
+          \${diff}
+          
+          INSTRUCTIONS:
+          1. Start with headline: # Release Notes - \${tagName}
+          2. Categorize changes into:
+             ## 🚀 New Features
+             ## 🐞 Bug Fixes
+             ## 🔧 Improvements
+          3. Use standard Unicode Emojis.
+          4. Be concise. If the commit history is messy or contains "Update bez hudby", try to summarize what actually changed in the code structure if possible, or mention "Maintenance update".
+          5. Output ONLY the Markdown.\`;
 
           async function run() {
-            if (!process.env.GEMINI_API_KEY) { fs.writeFileSync('release_body.md', '## Manual Check Required'); return; }
+            if (!process.env.GEMINI_API_KEY) { 
+              fs.writeFileSync(OUTPUT_FILE, '## Manual Check Required', 'utf8'); 
+              return; 
+            }
+
             const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + process.env.GEMINI_API_KEY;
+            
             try {
-              const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+              });
+
               const data = await response.json();
-              if (data.candidates) fs.writeFileSync('release_body.md', data.candidates[0].content.parts[0].text);
-              else fs.writeFileSync('release_body.md', '## AI Generation Failed');
-            } catch (e) { fs.writeFileSync('release_body.md', '## AI Error: ' + e.message); }
+              if (data.candidates && data.candidates[0].content) {
+                const text = data.candidates[0].content.parts[0].text;
+                // Vynucení UTF-8 zápisu
+                fs.writeFileSync(OUTPUT_FILE, text, 'utf8');
+                console.log('Notes generated successfully.');
+              } else {
+                console.log('AI Response empty:', JSON.stringify(data));
+                fs.writeFileSync(OUTPUT_FILE, '## AI Generation Failed', 'utf8');
+              }
+            } catch (e) {
+              console.error(e);
+              fs.writeFileSync(OUTPUT_FILE, '## AI Error: ' + e.message, 'utf8');
+            }
           }
+
           run();
           "@
-          Set-Content -Path "release-notes.js" -Value $scriptContent -Encoding UTF8
+          
+          # Uložení skriptu s UTF8 BOM pro PowerShell kompatibilitu
+          $scriptContent | Out-File -FilePath "release-notes.js" -Encoding utf8
 
       - name: Generate AI Notes
         env:
@@ -80,7 +153,7 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: node release-notes.js
 
-      - name: Prepare Release Body
+      - name: Append Footer
         shell: powershell
         run: |
           $footer = @"
@@ -93,17 +166,16 @@ jobs:
           2. Download and Extract ZIP
           3. Run `START.bat`
           "@
-          Add-Content -Path release_body.md -Value $footer
+          # Append s encodingem UTF8
+          Add-Content -Path release_body.md -Value $footer -Encoding UTF8
 
-      # --- NOVÝ KROK: KOPÍROVÁNÍ ZDROJOVÉHO KÓDU ---
+      # 3. BALÍČKOVÁNÍ (Už nemusí měnit README, to jsme udělali v kroku 1)
       - name: Package Source Code
         shell: powershell
         run: |
           $releaseDir = "release\LFS-LiveMap-Radio"
           New-Item -ItemType Directory -Force -Path $releaseDir
           
-          # Seznam souborů a složek, které chceme v ZIPu
-          # Zahrnujeme node_modules, aby to uživatel nemusel instalovat
           $filesToCopy = @(
             "public",
             "node_modules",
@@ -115,22 +187,18 @@ jobs:
             "tc_locations.js",
             "local_music_addon.js",
             "package.json",
-            "START.bat"
+            "START.bat",
+            "README.md" 
           )
+          # README.md se zkopíruje už upravené z rootu (díky kroku 1)
 
           foreach ($item in $filesToCopy) {
             if (Test-Path $item) {
               Copy-Item -Path $item -Destination $releaseDir -Recurse -Force
             }
           }
-
-          # Inject verze do README
-          $version = "${{ github.ref_name }}"
-          $readmeContent = Get-Content "README.md" -Raw
-          $readmeContent = $readmeContent -replace '\{\{VERSION\}\}', $version
-          Set-Content -Path "$releaseDir\README.md" -Value $readmeContent
           
-          # Config
+          # Config handling
           if (-not (Test-Path "$releaseDir\radio_config.json")) {
               if (Test-Path "radio_config.example.json") {
                   Copy-Item "radio_config.example.json" -Destination "$releaseDir\radio_config.json"
