@@ -24,33 +24,37 @@ jobs:
         with:
           node-version: '20'
       
-      # 1. UPDATE README V REPOZITÁŘI (Trvalá změna)
+# 1. UPDATE README V REPOZITÁŘI (Oprava detached HEAD)
       - name: Update README Version in Repo
         shell: powershell
         run: |
-          $version = "${{ github.ref_name }}"
-          Write-Host "Updating README to version: $version"
-          
-          # Přečíst a nahradit
-          $content = Get-Content "README.md" -Raw -Encoding UTF8
-          $newContent = $content -replace '\{\{VERSION\}\}', $version
-          
-          # Uložit zpět
-          Set-Content -Path "README.md" -Value $newContent -Encoding UTF8
-          
-          # Nastavit Git
+          # Nastavení Gitu
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          # Commit a Push změn zpět do main
-          # (Používáme try/catch pro případ, že se nic nezměnilo)
+          # DŮLEŽITÉ: Přepnutí z Tagu na větev Main
+          Write-Host "Switching to main branch..."
+          git fetch origin main
+          git checkout main
+          git pull origin main --rebase
+          
+          # Nyní jsme na main, můžeme upravovat
+          $version = "${{ github.ref_name }}"
+          Write-Host "Updating README to version: $version"
+          
+          $content = Get-Content "README.md" -Raw -Encoding UTF8
+          $newContent = $content -replace '\{\{VERSION\}\}', $version
+          Set-Content -Path "README.md" -Value $newContent -Encoding UTF8
+          
+          # Commit a Push
           try {
             git add README.md
             git commit -m "chore: update readme version to $version [skip ci]"
-            git push origin HEAD:main
-            Write-Host "README updated and pushed to repo."
+            # Teď už můžeme pushnout normálně, protože jsme na main
+            git push origin main
+            Write-Host "Success: README updated."
           } catch {
-            Write-Host "No changes to commit or push failed."
+            Write-Host "Nothing to commit or push failed (maybe version already set)."
           }
 
       - name: Install dependencies
