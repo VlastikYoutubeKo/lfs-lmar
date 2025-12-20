@@ -1,6 +1,6 @@
 // tc_locations.js
 // AUTO-GENERATED from TC API Track Data
-// Generated: 2025-12-19T12:18:33.960Z
+// Generated: 2025-12-19T20:27:42.934Z
 // Total Locations: 296
 
 export const TC_LOCATIONS = {
@@ -71,7 +71,7 @@ export const TC_LOCATIONS = {
     ]
   },
   "High Street": {
-    "x": 26.242666666666665,
+    "x": 26.243999999999996,
     "y": -41.66666666666666,
     "icon": "🛣️",
     "type": "road",
@@ -90,11 +90,11 @@ export const TC_LOCATIONS = {
         "y": 164.57
       },
       {
-        "x": -151.88,
+        "x": -151.87,
         "y": 139.77
       },
       {
-        "x": -139.38,
+        "x": -139.37,
         "y": 116.33
       },
       {
@@ -685,7 +685,7 @@ export const TC_LOCATIONS = {
     ]
   },
   "Beckton Road South 2": {
-    "x": -1005.3385714285714,
+    "x": -1005.3371428571429,
     "y": -1478.3700000000001,
     "icon": "🛣️",
     "type": "road",
@@ -704,7 +704,7 @@ export const TC_LOCATIONS = {
         "y": -1528.74
       },
       {
-        "x": -1063.11,
+        "x": -1063.1,
         "y": -1526.29
       },
       {
@@ -2662,8 +2662,8 @@ export const TC_LOCATIONS = {
     ]
   },
   "Grace Lane": {
-    "x": 83,
-    "y": -229.798,
+    "x": 98.705,
+    "y": -244.72166666666666,
     "icon": "🛣️",
     "type": "road",
     "track": "SO7",
@@ -2671,6 +2671,10 @@ export const TC_LOCATIONS = {
       {
         "x": 235.94,
         "y": -321.08
+      },
+      {
+        "x": 177.23,
+        "y": -319.34
       },
       {
         "x": 129.8,
@@ -2866,7 +2870,7 @@ export const TC_LOCATIONS = {
   },
   "Kenton Way 2": {
     "x": -266.605,
-    "y": -159.3275,
+    "y": -159.325,
     "icon": "🛣️",
     "type": "road",
     "track": "SO7",
@@ -2877,7 +2881,7 @@ export const TC_LOCATIONS = {
       },
       {
         "x": -240.18,
-        "y": -137.63
+        "y": -137.62
       },
       {
         "x": -253.31,
@@ -3044,7 +3048,7 @@ export const TC_LOCATIONS = {
   },
   "Circus Entry North": {
     "x": 531.9766666666667,
-    "y": -580.7199999999999,
+    "y": -580.7166666666667,
     "icon": "🛣️",
     "type": "road",
     "track": "SO7",
@@ -3055,7 +3059,7 @@ export const TC_LOCATIONS = {
       },
       {
         "x": 587.83,
-        "y": -622.64
+        "y": -622.63
       },
       {
         "x": 602.78,
@@ -3886,8 +3890,8 @@ export const TC_LOCATIONS = {
     ]
   },
   "Letsby Avenue": {
-    "x": 285.69,
-    "y": -300.66499999999996,
+    "x": 269.1066666666666,
+    "y": -307.46999999999997,
     "icon": "🛣️",
     "type": "road",
     "track": "SO7",
@@ -3899,6 +3903,10 @@ export const TC_LOCATIONS = {
       {
         "x": 271.36,
         "y": -310.14
+      },
+      {
+        "x": 235.94,
+        "y": -321.08
       }
     ]
   },
@@ -3920,7 +3928,7 @@ export const TC_LOCATIONS = {
     ]
   },
   "^2Northway Services SZ": {
-    "x": -339.19000000000005,
+    "x": -339.1875,
     "y": 785.44,
     "icon": "🏘️",
     "type": "zone",
@@ -3939,7 +3947,7 @@ export const TC_LOCATIONS = {
         "y": 786.94
       },
       {
-        "x": -337.88,
+        "x": -337.87,
         "y": 780.13
       }
     ]
@@ -3971,14 +3979,14 @@ export const TC_LOCATIONS = {
   },
   "^3Monument Services": {
     "x": 1471.152,
-    "y": -975.3639999999999,
+    "y": -975.3599999999999,
     "icon": "🏘️",
     "type": "zone",
     "track": "SO7",
     "points": [
       {
         "x": 1531.19,
-        "y": -1000.13
+        "y": -1000.12
       },
       {
         "x": 1453.19,
@@ -3990,7 +3998,7 @@ export const TC_LOCATIONS = {
       },
       {
         "x": 1431.38,
-        "y": -950.38
+        "y": -950.37
       },
       {
         "x": 1526.06,
@@ -4024,7 +4032,7 @@ export const TC_LOCATIONS = {
     ]
   },
   "^3Maple Road Services": {
-    "x": -21.052,
+    "x": -21.05,
     "y": -671.962,
     "icon": "🏘️",
     "type": "zone",
@@ -4035,7 +4043,7 @@ export const TC_LOCATIONS = {
         "y": -698.06
       },
       {
-        "x": -64.88,
+        "x": -64.87,
         "y": -620.94
       },
       {
@@ -4053,7 +4061,7 @@ export const TC_LOCATIONS = {
     ]
   },
   "^3Northway Services": {
-    "x": -298.985,
+    "x": -298.98249999999996,
     "y": 796.2825,
     "icon": "🏘️",
     "type": "zone",
@@ -4072,7 +4080,7 @@ export const TC_LOCATIONS = {
         "y": 807.25
       },
       {
-        "x": -284.38,
+        "x": -284.37,
         "y": 747.38
       }
     ]
@@ -4701,7 +4709,7 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "Nexus Arena Bus Station": {
-    "x": 34.56,
+    "x": 34.57,
     "y": 44.19,
     "icon": "🏢",
     "type": "building",
@@ -4736,7 +4744,7 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "South Food Court": {
-    "x": 358.5,
+    "x": 358.51,
     "y": -239.88,
     "icon": "🏢",
     "type": "building",
@@ -4757,7 +4765,7 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "Banger Stadium Building": {
-    "x": -133.34,
+    "x": -133.35,
     "y": -246.06,
     "icon": "🏢",
     "type": "building",
@@ -4785,7 +4793,7 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "RDSR Club House": {
-    "x": -571.56,
+    "x": -571.57,
     "y": -1461.09,
     "icon": "🏢",
     "type": "building",
@@ -4821,20 +4829,20 @@ export const TC_LOCATIONS = {
   },
   "GLOW Arena": {
     "x": -1004.41,
-    "y": -685.59,
+    "y": -685.6,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
   },
   "Canary Athletics": {
-    "x": -870.47,
+    "x": -870.46,
     "y": -276.97,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
   },
   "Jack D's": {
-    "x": 285.09,
+    "x": 285.1,
     "y": -1206.69,
     "icon": "🏢",
     "type": "building",
@@ -4848,7 +4856,7 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "Chick'N Run": {
-    "x": 349.09,
+    "x": 349.1,
     "y": -1295.53,
     "icon": "🏢",
     "type": "building",
@@ -4862,7 +4870,7 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "Dulwich College": {
-    "x": 723,
+    "x": 723.01,
     "y": -1317.31,
     "icon": "🏢",
     "type": "building",
@@ -4877,7 +4885,7 @@ export const TC_LOCATIONS = {
   },
   "Camel Cafe": {
     "x": -433.41,
-    "y": 173.84,
+    "y": 173.85,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
@@ -4890,8 +4898,8 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "Gordon's Cooking School": {
-    "x": -429.81,
-    "y": 385.31,
+    "x": -429.82,
+    "y": 385.32,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
@@ -4904,7 +4912,7 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "South Lake Centre": {
-    "x": -92.09,
+    "x": -92.1,
     "y": -128.09,
     "icon": "🏢",
     "type": "building",
@@ -4918,15 +4926,15 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "South Citibank": {
-    "x": 38.56,
+    "x": 38.57,
     "y": -50.84,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
   },
   "Oaktree Gallery": {
-    "x": 134.53,
-    "y": 180.81,
+    "x": 134.54,
+    "y": 180.82,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
@@ -4946,14 +4954,14 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "Monument Services Building": {
-    "x": 1513.56,
+    "x": 1513.57,
     "y": -970.19,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
   },
   "College Park Bandstand": {
-    "x": 823.09,
+    "x": 823.1,
     "y": -869.56,
     "icon": "🏢",
     "type": "building",
@@ -4967,28 +4975,28 @@ export const TC_LOCATIONS = {
     "track": "SO7"
   },
   "Southern Hotel": {
-    "x": 134.31,
-    "y": 362.09,
+    "x": 134.32,
+    "y": 362.1,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
   },
   "The Gents Back Passage": {
     "x": -439.94,
-    "y": 583.34,
+    "y": 583.35,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
   },
   "Wine Cellar of London": {
     "x": -330.88,
-    "y": 632.09,
+    "y": 632.1,
     "icon": "🏢",
     "type": "building",
     "track": "SO7"
   },
   "Mewsway Jewellers": {
-    "x": -580.47,
+    "x": -580.46,
     "y": 329.41,
     "icon": "🏢",
     "type": "building",

@@ -361,6 +361,7 @@
     <button class="control-btn active" id="gpsBtn">📍</button>
     <button class="control-btn" id="soundBtn">🔇</button>
     <button class="control-btn" id="playersBtn">👥</button>
+    <button class="control-btn" id="algoBtn" title="Pathfinding algoritmus">A*</button>
   </div>
   
   <!-- PLAYER LIST -->
@@ -374,6 +375,13 @@
 
   <!-- WORKER CODE -->
   <script id="worker-code" type="javascript/worker">
+    // Přeposlání console.log do hlavního vlákna
+    const originalLog = console.log;
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      self.postMessage({ type: 'WORKER_LOG', payload: args.map(a => String(a)).join(' ') });
+    };
+    
     class PriorityQueue {
       constructor() { this.items = []; }
       enqueue(element, priority) {
@@ -394,6 +402,7 @@
 
     let nodes = [];
     let graphReady = false;
+    let pathfindingAlgorithm = 'astar'; // 'astar', 'dijkstra', 'bidirectional', 'greedy'
 
     self.onmessage = function(e) {
       const { type, payload } = e.data;
@@ -405,8 +414,28 @@
       else if (type === 'FIND_PATH') {
         if (!graphReady) return;
         const { startX, startY, endX, endY } = payload;
-        const path = findPath(startX, startY, endX, endY);
+        
+        // Použij vybraný algoritmus
+        let path = null;
+        switch (pathfindingAlgorithm) {
+          case 'dijkstra':
+            path = findPathDijkstra(startX, startY, endX, endY);
+            break;
+          case 'bidirectional':
+            path = findPathBidirectional(startX, startY, endX, endY);
+            break;
+          case 'greedy':
+            path = findPathGreedy(startX, startY, endX, endY);
+            break;
+          default:
+            path = findPathAStar(startX, startY, endX, endY);
+        }
+          
         self.postMessage({ type: 'PATH_FOUND', payload: path });
+      }
+      else if (type === 'SET_ALGORITHM') {
+        pathfindingAlgorithm = payload;
+        console.log(`🔧 Pathfinding algoritmus změněn na: ${pathfindingAlgorithm}`);
       }
     };
 
@@ -468,8 +497,9 @@
               const d = Math.hypot(nodeA.x - nodeB.x, nodeA.y - nodeB.y);
               
               if (d < MAX_DIST) {
-                nodes[idxA].neighbors.push({ idx: idxB, dist: d * 3 });
-                nodes[idxB].neighbors.push({ idx: idxA, dist: d * 3 });
+                // Vyšší penalizace (5x místo 3x) aby preferoval správné cesty přes křižovatky
+                nodes[idxA].neighbors.push({ idx: idxB, dist: d * 5 });
+                nodes[idxB].neighbors.push({ idx: idxA, dist: d * 5 });
               }
             });
           }
@@ -482,26 +512,59 @@
     function findNearestNode(x, y) {
       let best = -1;
       let minD = Infinity;
+      const MAX_SEARCH_DIST = 500; // Zvětšený radius vyhledávání (z 316 na 500)
+      
       for (let i = 0; i < nodes.length; i++) {
         const d = (nodes[i].x - x) ** 2 + (nodes[i].y - y) ** 2;
         if (d < minD) { minD = d; best = i; }
       }
-      return (minD < 100000) ? best : -1;
+      
+      const actualDist = Math.sqrt(minD);
+      if (actualDist > MAX_SEARCH_DIST) {
+        console.log(`⚠️ Nearest node je ${actualDist.toFixed(0)}m daleko (limit ${MAX_SEARCH_DIST}m)`);
+        return -1;
+      }
+      
+      return best;
     }
 
-    function findPath(sx, sy, ex, ey) {
+    function findPathAStar(sx, sy, ex, ey) {
       const start = findNearestNode(sx, sy);
       const end = findNearestNode(ex, ey);
-      if (start === -1 || end === -1) return null;
+      if (start === -1 || end === -1) {
+        console.log('❌ A* Pathfinding: Start nebo end node nenalezen');
+        return null;
+      }
 
+      const startTime = Date.now();
+      const MAX_ITERATIONS = 10000;
+      const MAX_TIME = 2000;
+      
       const came = new Map();
       const cost = new Map();
       const pq = new PriorityQueue();
 
       pq.enqueue(start, 0);
       cost.set(start, 0);
+      
+      let iterations = 0;
 
       while (!pq.isEmpty()) {
+        iterations++;
+        
+        if (iterations % 100 === 0) {
+          const elapsed = Date.now() - startTime;
+          if (elapsed > MAX_TIME) {
+            console.log(`⏱️ A* timeout after ${iterations} iterations (${elapsed}ms)`);
+            return null;
+          }
+        }
+        
+        if (iterations > MAX_ITERATIONS) {
+          console.log(`🔄 A* max iterations reached (${MAX_ITERATIONS})`);
+          return null;
+        }
+
         const curr = pq.dequeue().element;
         if (curr === end) {
           const path = [nodes[curr]];
@@ -510,6 +573,8 @@
             c = came.get(c);
             path.unshift(nodes[c]);
           }
+          const elapsed = Date.now() - startTime;
+          console.log(`✅ A* path found: ${path.length} bodů, ${iterations} iterací, ${elapsed}ms`);
           return path;
         }
 
@@ -517,12 +582,284 @@
           const newCost = (cost.get(curr) || 0) + next.dist;
           if (!cost.has(next.idx) || newCost < cost.get(next.idx)) {
             cost.set(next.idx, newCost);
-            const h = Math.hypot(nodes[next.idx].x - ex, nodes[next.idx].y - ey);
+            const h = Math.hypot(nodes[next.idx].x - ex, nodes[next.idx].y - ey) * 1.2;
             pq.enqueue(next.idx, newCost + h);
             came.set(next.idx, curr);
           }
         }
       }
+      
+      const elapsed = Date.now() - startTime;
+      console.log(`❌ A* cesta nenalezena po ${iterations} iteracích (${elapsed}ms)`);
+      return null;
+    }
+
+    function findPathDijkstra(sx, sy, ex, ey) {
+      const start = findNearestNode(sx, sy);
+      const end = findNearestNode(ex, ey);
+      if (start === -1 || end === -1) {
+        console.log('❌ Dijkstra: Start nebo end node nenalezen');
+        return null;
+      }
+
+      const startTime = Date.now();
+      const MAX_ITERATIONS = 15000; // Dijkstra může potřebovat víc iterací
+      const MAX_TIME = 3000; // 3 sekundy pro Dijkstra
+      
+      const came = new Map();
+      const cost = new Map();
+      const pq = new PriorityQueue();
+      const visited = new Set();
+
+      pq.enqueue(start, 0);
+      cost.set(start, 0);
+      
+      let iterations = 0;
+
+      while (!pq.isEmpty()) {
+        iterations++;
+        
+        if (iterations % 100 === 0) {
+          const elapsed = Date.now() - startTime;
+          if (elapsed > MAX_TIME) {
+            console.log(`⏱️ Dijkstra timeout after ${iterations} iterations (${elapsed}ms)`);
+            return null;
+          }
+        }
+        
+        if (iterations > MAX_ITERATIONS) {
+          console.log(`🔄 Dijkstra max iterations reached (${MAX_ITERATIONS})`);
+          return null;
+        }
+
+        const curr = pq.dequeue().element;
+        
+        if (visited.has(curr)) continue;
+        visited.add(curr);
+        
+        if (curr === end) {
+          const path = [nodes[curr]];
+          let c = curr;
+          while (came.has(c)) {
+            c = came.get(c);
+            path.unshift(nodes[c]);
+          }
+          const elapsed = Date.now() - startTime;
+          console.log(`✅ Dijkstra path found: ${path.length} bodů, ${iterations} iterací, ${elapsed}ms`);
+          return path;
+        }
+
+        for (const next of nodes[curr].neighbors) {
+          if (visited.has(next.idx)) continue;
+          
+          const newCost = (cost.get(curr) || 0) + next.dist;
+          if (!cost.has(next.idx) || newCost < cost.get(next.idx)) {
+            cost.set(next.idx, newCost);
+            pq.enqueue(next.idx, newCost); // Dijkstra používá jen skutečnou cenu, bez heuristiky
+            came.set(next.idx, curr);
+          }
+        }
+      }
+      
+      const elapsed = Date.now() - startTime;
+      console.log(`❌ Dijkstra cesta nenalezena po ${iterations} iteracích (${elapsed}ms)`);
+      return null;
+    }
+
+    function findPathBidirectional(sx, sy, ex, ey) {
+      const start = findNearestNode(sx, sy);
+      const end = findNearestNode(ex, ey);
+      if (start === -1 || end === -1) {
+        console.log('❌ Bidirectional: Start nebo end node nenalezen');
+        return null;
+      }
+
+      const startTime = Date.now();
+      const MAX_ITERATIONS = 8000;
+      const MAX_TIME = 2500;
+      
+      // Dvě fronty - z obou stran
+      const forwardPQ = new PriorityQueue();
+      const backwardPQ = new PriorityQueue();
+      
+      const forwardCame = new Map();
+      const backwardCame = new Map();
+      const forwardCost = new Map();
+      const backwardCost = new Map();
+      const forwardVisited = new Set();
+      const backwardVisited = new Set();
+      
+      forwardPQ.enqueue(start, 0);
+      backwardPQ.enqueue(end, 0);
+      forwardCost.set(start, 0);
+      backwardCost.set(end, 0);
+      
+      let iterations = 0;
+      let meetingPoint = -1;
+
+      while (!forwardPQ.isEmpty() && !backwardPQ.isEmpty()) {
+        iterations++;
+        
+        if (iterations % 100 === 0) {
+          const elapsed = Date.now() - startTime;
+          if (elapsed > MAX_TIME) {
+            console.log(`⏱️ Bidirectional timeout after ${iterations} iterations (${elapsed}ms)`);
+            return null;
+          }
+        }
+        
+        if (iterations > MAX_ITERATIONS) {
+          console.log(`🔄 Bidirectional max iterations reached (${MAX_ITERATIONS})`);
+          return null;
+        }
+
+        // Forward search
+        if (!forwardPQ.isEmpty()) {
+          const curr = forwardPQ.dequeue().element;
+          
+          if (forwardVisited.has(curr)) continue;
+          forwardVisited.add(curr);
+          
+          // Check if we met backward search
+          if (backwardVisited.has(curr)) {
+            meetingPoint = curr;
+            break;
+          }
+          
+          for (const next of nodes[curr].neighbors) {
+            if (forwardVisited.has(next.idx)) continue;
+            
+            const newCost = (forwardCost.get(curr) || 0) + next.dist;
+            if (!forwardCost.has(next.idx) || newCost < forwardCost.get(next.idx)) {
+              forwardCost.set(next.idx, newCost);
+              const h = Math.hypot(nodes[next.idx].x - ex, nodes[next.idx].y - ey);
+              forwardPQ.enqueue(next.idx, newCost + h);
+              forwardCame.set(next.idx, curr);
+            }
+          }
+        }
+        
+        // Backward search
+        if (!backwardPQ.isEmpty()) {
+          const curr = backwardPQ.dequeue().element;
+          
+          if (backwardVisited.has(curr)) continue;
+          backwardVisited.add(curr);
+          
+          // Check if we met forward search
+          if (forwardVisited.has(curr)) {
+            meetingPoint = curr;
+            break;
+          }
+          
+          for (const next of nodes[curr].neighbors) {
+            if (backwardVisited.has(next.idx)) continue;
+            
+            const newCost = (backwardCost.get(curr) || 0) + next.dist;
+            if (!backwardCost.has(next.idx) || newCost < backwardCost.get(next.idx)) {
+              backwardCost.set(next.idx, newCost);
+              const h = Math.hypot(nodes[next.idx].x - sx, nodes[next.idx].y - sy);
+              backwardPQ.enqueue(next.idx, newCost + h);
+              backwardCame.set(next.idx, curr);
+            }
+          }
+        }
+      }
+      
+      if (meetingPoint === -1) {
+        const elapsed = Date.now() - startTime;
+        console.log(`❌ Bidirectional cesta nenalezena po ${iterations} iteracích (${elapsed}ms)`);
+        return null;
+      }
+      
+      // Reconstruct path from both sides
+      const forwardPath = [];
+      let c = meetingPoint;
+      while (c !== undefined) {
+        forwardPath.unshift(nodes[c]);
+        c = forwardCame.get(c);
+      }
+      
+      const backwardPath = [];
+      c = backwardCame.get(meetingPoint);
+      while (c !== undefined) {
+        backwardPath.push(nodes[c]);
+        c = backwardCame.get(c);
+      }
+      
+      const path = [...forwardPath, ...backwardPath];
+      const elapsed = Date.now() - startTime;
+      console.log(`✅ Bidirectional path found: ${path.length} bodů, ${iterations} iterací, ${elapsed}ms`);
+      return path;
+    }
+
+    function findPathGreedy(sx, sy, ex, ey) {
+      const start = findNearestNode(sx, sy);
+      const end = findNearestNode(ex, ey);
+      if (start === -1 || end === -1) {
+        console.log('❌ Greedy: Start nebo end node nenalezen');
+        return null;
+      }
+
+      const startTime = Date.now();
+      const MAX_ITERATIONS = 5000; // Greedy je rychlejší ale může selhat
+      const MAX_TIME = 1500;
+      
+      const came = new Map();
+      const pq = new PriorityQueue();
+      const visited = new Set();
+
+      pq.enqueue(start, 0);
+      
+      let iterations = 0;
+
+      while (!pq.isEmpty()) {
+        iterations++;
+        
+        if (iterations % 100 === 0) {
+          const elapsed = Date.now() - startTime;
+          if (elapsed > MAX_TIME) {
+            console.log(`⏱️ Greedy timeout after ${iterations} iterations (${elapsed}ms)`);
+            return null;
+          }
+        }
+        
+        if (iterations > MAX_ITERATIONS) {
+          console.log(`🔄 Greedy max iterations reached (${MAX_ITERATIONS})`);
+          return null;
+        }
+
+        const curr = pq.dequeue().element;
+        
+        if (visited.has(curr)) continue;
+        visited.add(curr);
+        
+        if (curr === end) {
+          const path = [nodes[curr]];
+          let c = curr;
+          while (came.has(c)) {
+            c = came.get(c);
+            path.unshift(nodes[c]);
+          }
+          const elapsed = Date.now() - startTime;
+          console.log(`✅ Greedy path found: ${path.length} bodů, ${iterations} iterací, ${elapsed}ms`);
+          return path;
+        }
+
+        for (const next of nodes[curr].neighbors) {
+          if (visited.has(next.idx)) continue;
+          
+          if (!came.has(next.idx)) {
+            // Greedy používá JEN heuristiku (vzdušná vzdálenost k cíli)
+            const h = Math.hypot(nodes[next.idx].x - ex, nodes[next.idx].y - ey);
+            pq.enqueue(next.idx, h);
+            came.set(next.idx, curr);
+          }
+        }
+      }
+      
+      const elapsed = Date.now() - startTime;
+      console.log(`❌ Greedy cesta nenalezena po ${iterations} iteracích (${elapsed}ms)`);
       return null;
     }
   </script>
@@ -547,7 +884,7 @@
       track: { config: getTrackConfig('BL'), img: new Image() },
       nav: { target: null, path: null, distance: 0 },
       ui: { following: null, dragging: false, lastDrag: { x: 0, y: 0 }, gpsEnabled: true, soundEnabled: false },
-      voice: { lastTurn: null, lastTurnTime: 0, avgSpeed: 0 }
+      voice: { lastTurnId: null, lastTurnStage: null, lastTurnTime: 0, avgSpeed: 0 }
     };
 
     // ===== WORKER =====
@@ -716,42 +1053,56 @@
     });
 
     worker.onmessage = (e) => {
-      if (e.data.type === 'GRAPH_READY') {
+      if (e.data.type === 'WORKER_LOG') {
+        console.log('[Worker]', e.data.payload);
+      }
+      else if (e.data.type === 'GRAPH_READY') {
         document.getElementById('loader').classList.remove('show');
+        console.log('✅ Graf cest je připraven, celkem nodů:', nodes?.length || 'neznámé');
       }
       else if (e.data.type === 'PATH_FOUND') {
         workerBusy = false;
-        if (e.data.payload && e.data.payload.length > 1) {
-          // SMOOTHING: Přidáme mezibody pro lepší detekci zatáček
-          const rawPath = e.data.payload;
-          const smoothedPath = [];
+        
+        if (!e.data.payload || e.data.payload.length <= 1) {
+          console.log('⚠️ PATH_FOUND: Cesta NENALEZENA nebo je příliš krátká');
+          // Ponechej target ale bez cesty - HUD ukáže přímou vzdálenost
+          state.nav.path = null;
+          state.nav.distance = 0;
+          return;
+        }
+        
+        console.log('🛣️ PATH_FOUND:', `${e.data.payload.length} bodů`);
+        
+        // SMOOTHING: Přidáme mezibody pro lepší detekci zatáček
+        const rawPath = e.data.payload;
+        const smoothedPath = [];
+        
+        for (let i = 0; i < rawPath.length - 1; i++) {
+          smoothedPath.push(rawPath[i]);
           
-          for (let i = 0; i < rawPath.length - 1; i++) {
-            smoothedPath.push(rawPath[i]);
-            
-            // Přidej mezibody každých 10m
-            const dx = rawPath[i+1].x - rawPath[i].x;
-            const dy = rawPath[i+1].y - rawPath[i].y;
-            const segmentDist = Math.hypot(dx, dy);
-            
-            if (segmentDist > 10) {
-              const numIntermediate = Math.floor(segmentDist / 10);
-              for (let j = 1; j <= numIntermediate; j++) {
-                const t = j / (numIntermediate + 1);
-                smoothedPath.push({
-                  x: rawPath[i].x + dx * t,
-                  y: rawPath[i].y + dy * t
-                });
-              }
+          // Přidej mezibody každých 10m
+          const dx = rawPath[i+1].x - rawPath[i].x;
+          const dy = rawPath[i+1].y - rawPath[i].y;
+          const segmentDist = Math.hypot(dx, dy);
+          
+          if (segmentDist > 10) {
+            const numIntermediate = Math.floor(segmentDist / 10);
+            for (let j = 1; j <= numIntermediate; j++) {
+              const t = j / (numIntermediate + 1);
+              smoothedPath.push({
+                x: rawPath[i].x + dx * t,
+                y: rawPath[i].y + dy * t
+              });
             }
           }
-          smoothedPath.push(rawPath[rawPath.length - 1]);
-          
-          console.log(`📍 Path smoothing: ${rawPath.length} → ${smoothedPath.length} points`);
-          
-          state.nav.path = smoothedPath;
-          state.nav.distance = calcPathDistance(smoothedPath);
         }
+        smoothedPath.push(rawPath[rawPath.length - 1]);
+        
+        console.log(`📍 Path smoothing: ${rawPath.length} → ${smoothedPath.length} bodů`);
+        
+        state.nav.path = smoothedPath;
+        state.nav.distance = calcPathDistance(smoothedPath);
+        console.log(`📏 Celková vzdálenost cesty: ${Math.round(state.nav.distance)}m`);
       }
     };
 
@@ -781,7 +1132,9 @@
     function setTarget(name, coords, icon) {
       state.nav.target = { name, x: coords.x, y: coords.y, icon, points: coords.points || null };
       state.nav.path = null;
-      state.voice.lastTurn = null;
+      state.voice.lastTurnId = null;
+      state.voice.lastTurnStage = null;
+      state.voice.lastTurnTime = 0;
       requestPath();
       hideSearch();
     }
@@ -793,6 +1146,9 @@
 
       let tx = state.nav.target.x;
       let ty = state.nav.target.y;
+      
+      const directDist = Math.hypot(me.x - tx, me.y - ty);
+      console.log(`🚗 Requesting path: vzdálenost ${Math.round(directDist)}m od (${Math.round(me.x)}, ${Math.round(me.y)}) k (${Math.round(tx)}, ${Math.round(ty)})`);
 
       // Snap to road if possible
       if (state.nav.target.points && state.nav.target.points.length > 0) {
@@ -823,95 +1179,123 @@
       document.getElementById('hud').classList.remove('active');
     }
 
-    // ===== TURN DETECTION - NOVÝ ALGORITMUS =====
+    // ===== TURN DETECTION - VYLEPŠENÝ ALGORITMUS =====
     function detectTurn(path) {
       try {
         if (!path || path.length < 5) return null;
         
-        // Najdi první bod ve vzdálenosti 50-150m
-        let targetIdx = null;
-        let dist = 0;
+        // Projdi celou cestu a najdi VŠECHNY zatáčky
+        const turns = [];
         
-        for (let i = 1; i < Math.min(path.length, 50); i++) {
-          dist += Math.hypot(path[i].x - path[i-1].x, path[i].y - path[i-1].y);
-          
-          if (dist >= 50 && dist <= 150) {
-            targetIdx = i;
-            break;
-          }
-          
-          if (dist > 150) break;
+        // Předpočítej kumulativní vzdálenosti pro všechny body
+        const distances = [0];
+        for (let i = 1; i < path.length; i++) {
+          distances[i] = distances[i-1] + Math.hypot(path[i].x - path[i-1].x, path[i].y - path[i-1].y);
         }
         
-        if (!targetIdx || targetIdx < 3 || targetIdx >= path.length - 3) {
+        for (let i = 5; i < path.length - 5; i++) {
+          const cumulativeDist = distances[i];
+          
+          // Skip body blíž než 20m (ty už pravděpodobně projedeš)
+          if (cumulativeDist < 20) continue;
+          
+          // Skip body dál než 200m (příliš daleko na hlášení)
+          if (cumulativeDist > 200) break;
+          
+          // Spočítej směr PŘED tímto bodem (5 bodů zpět)
+          let beforeAngle = 0;
+          let beforeCount = 0;
+          for (let j = i - 5; j < i; j++) {
+            const dx = path[j+1].x - path[j].x;
+            const dy = path[j+1].y - path[j].y;
+            const d = Math.hypot(dx, dy);
+            if (d > 1) {
+              beforeAngle += Math.atan2(dy, dx);
+              beforeCount++;
+            }
+          }
+          if (beforeCount === 0) continue;
+          beforeAngle /= beforeCount;
+          
+          // Spočítej směr PO tomto bodu (5 bodů vpřed)
+          let afterAngle = 0;
+          let afterCount = 0;
+          for (let j = i; j < Math.min(i + 5, path.length - 1); j++) {
+            const dx = path[j+1].x - path[j].x;
+            const dy = path[j+1].y - path[j].y;
+            const d = Math.hypot(dx, dy);
+            if (d > 1) {
+              afterAngle += Math.atan2(dy, dx);
+              afterCount++;
+            }
+          }
+          if (afterCount === 0) continue;
+          afterAngle /= afterCount;
+          
+          // Vypočti rozdíl úhlů
+          let angleDiff = afterAngle - beforeAngle;
+          while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+          while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+          
+          const angleDeg = Math.abs(angleDiff * 180 / Math.PI);
+          
+          // Je to výrazná zatáčka? (alespoň 35°)
+          if (angleDeg >= 35) {
+            const isLeft = angleDiff > 0;
+            let turnType;
+            
+            if (angleDeg < 60) {
+              turnType = isLeft ? 'slight_left' : 'slight_right';
+            } else if (angleDeg < 110) {
+              turnType = isLeft ? 'left' : 'right';
+            } else {
+              turnType = isLeft ? 'sharp_left' : 'sharp_right';
+            }
+            
+            turns.push({
+              type: turnType,
+              dist: cumulativeDist,
+              angle: angleDeg,
+              point: path[i],
+              index: i
+            });
+          }
+        }
+        
+        // Pokud nejsou žádné zatáčky, vrať null
+        if (turns.length === 0) {
+          console.log('⚠️ Žádné zatáčky nenalezeny v rozsahu 20-200m');
           return null;
         }
         
-        // Spočítej směr PŘED zatáčkou (průměr 3 bodů před)
-        let beforeAngle = 0;
-        let beforeCount = 0;
-        for (let i = Math.max(0, targetIdx - 4); i < targetIdx - 1; i++) {
-          const dx = path[i+1].x - path[i].x;
-          const dy = path[i+1].y - path[i].y;
-          if (Math.hypot(dx, dy) > 1) {
-            beforeAngle += Math.atan2(dy, dx);
-            beforeCount++;
+        // Debug výpis VŠECH zatáček
+        console.log(`📋 Detekováno ${turns.length} zatáček:`);
+        turns.slice(0, 5).forEach((t, idx) => {
+          console.log(`  ${idx + 1}. ${t.type} at ${t.dist.toFixed(0)}m (${t.angle.toFixed(1)}°, idx: ${t.index})`);
+        });
+        if (turns.length > 5) console.log(`  ... a dalších ${turns.length - 5} zatáček`);
+        
+        // DETEKCE KRUHOVÉHO OBJEZDU
+        // Pokud je víc než 2 zatáčky stejného směru blízko za sebou (do 100m), je to kruhový objezd
+        let isRoundabout = false;
+        if (turns.length >= 3) {
+          const firstThree = turns.slice(0, 3);
+          const allLeft = firstThree.every(t => t.type.includes('left'));
+          const allRight = firstThree.every(t => t.type.includes('right'));
+          const closeTogeter = (firstThree[2].dist - firstThree[0].dist) < 100;
+          
+          if ((allLeft || allRight) && closeTogeter) {
+            isRoundabout = true;
+            console.log(`🔄 ROUNDABOUT DETECTED: ${turns.length} turns in ${firstThree[2].dist.toFixed(0)}m`);
           }
         }
-        if (beforeCount === 0) return null;
-        beforeAngle /= beforeCount;
         
-        // Spočítej směr PO zatáčce (průměr 3 bodů po)
-        let afterAngle = 0;
-        let afterCount = 0;
-        for (let i = targetIdx + 1; i < Math.min(targetIdx + 5, path.length - 1); i++) {
-          const dx = path[i+1].x - path[i].x;
-          const dy = path[i+1].y - path[i].y;
-          if (Math.hypot(dx, dy) > 1) {
-            afterAngle += Math.atan2(dy, dx);
-            afterCount++;
-          }
-        }
-        if (afterCount === 0) return null;
-        afterAngle /= afterCount;
+        // Vrať NEJBLIŽŠÍ zatáčku (první v pořadí)
+        const nearestTurn = turns[0];
+        nearestTurn.isRoundabout = isRoundabout;
+        console.log(`🔄 NEAREST TURN: ${nearestTurn.type} at ${nearestTurn.dist.toFixed(0)}m (${nearestTurn.angle.toFixed(1)}°) [${turns.length} total turns found]${isRoundabout ? ' - ROUNDABOUT' : ''}`);
         
-        // Vypočti rozdíl úhlů
-        let angleDiff = afterAngle - beforeAngle;
-        
-        // Normalizuj do -PI až PI
-        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-        
-        const angleDeg = Math.abs(angleDiff * 180 / Math.PI);
-        
-        // Je to zatáčka? (alespoň 40° - ignoruje mírné záhyby silnice)
-        if (angleDeg < 40) {
-          return null;
-        }
-        
-        // Urči typ zatáčky
-        let turnType;
-        const isLeft = angleDiff > 0;
-        
-        if (angleDeg < 60) {
-          // Mírná zatáčka (40-60°)
-          turnType = isLeft ? 'slight_left' : 'slight_right';
-        } else if (angleDeg < 120) {
-          // Normální zatáčka (60-120°)
-          turnType = isLeft ? 'left' : 'right';
-        } else {
-          // Ostrá zatáčka (120°+)
-          turnType = isLeft ? 'sharp_left' : 'sharp_right';
-        }
-        
-        console.log(`🔄 TURN DETECTED: ${turnType} at ${dist.toFixed(0)}m (${angleDeg.toFixed(1)}°)`);
-        
-        return {
-          type: turnType,
-          dist: dist,
-          angle: angleDeg,
-          point: path[targetIdx]
-        };
+        return nearestTurn;
       } catch (error) {
         console.error('❌ TURN DETECTION ERROR:', error);
         console.log('🔍 Path data:', JSON.stringify({
@@ -985,38 +1369,40 @@
         ctx.lineWidth = 8;
         ctx.strokeStyle = '#4a9eff';
         ctx.stroke();
+      }
 
-        // Destination marker
-        if (state.nav.target) {
-          const tp = worldToCanvas(state.nav.target.x, state.nav.target.y, state.track.config, state.track.img.width, state.track.img.height);
-          const pulse = 8 + Math.sin(Date.now() / 300) * 4;
-          
-          ctx.fillStyle = 'rgba(74, 158, 255, 0.2)';
-          ctx.beginPath();
-          ctx.arc(tp.x, tp.y, pulse + 20, 0, Math.PI * 2);
-          ctx.fill();
-          
-          ctx.fillStyle = '#4a9eff';
-          ctx.beginPath();
-          ctx.arc(tp.x, tp.y, 15, 0, Math.PI * 2);
-          ctx.fill();
-          
-          ctx.fillStyle = '#fff';
-          ctx.beginPath();
-          ctx.arc(tp.x, tp.y, 8, 0, Math.PI * 2);
-          ctx.fill();
-          
-          if (state.nav.target.icon) {
-            ctx.font = 'bold 26px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(state.nav.target.icon, tp.x, tp.y - 40);
-          }
+      // Destination marker - zobrazuj i bez cesty
+      if (state.nav.target) {
+        const tp = worldToCanvas(state.nav.target.x, state.nav.target.y, state.track.config, state.track.img.width, state.track.img.height);
+        const pulse = 8 + Math.sin(Date.now() / 300) * 4;
+        
+        ctx.fillStyle = 'rgba(74, 158, 255, 0.2)';
+        ctx.beginPath();
+        ctx.arc(tp.x, tp.y, pulse + 20, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#4a9eff';
+        ctx.beginPath();
+        ctx.arc(tp.x, tp.y, 15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(tp.x, tp.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        
+        if (state.nav.target.icon) {
+          ctx.font = 'bold 26px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(state.nav.target.icon, tp.x, tp.y - 40);
         }
 
-        // Update HUD
+        // Update HUD - zobrazuj i bez cesty (použij přímou vzdálenost)
+        const me = state.cars.get(state.ui.following);
         if (me) {
           const dist = Math.hypot(me.x - state.nav.target.x, me.y - state.nav.target.y);
+          console.log(`📊 HUD update: přímá vzdálenost ${Math.round(dist)}m, cesta ${state.nav.path ? Math.round(state.nav.distance) : 'N/A'}m`);
           
           if (dist < 25) {
             stopNav();
@@ -1024,88 +1410,124 @@
           } else {
             state.voice.avgSpeed = state.voice.avgSpeed * 0.95 + me.speed * 0.05;
             const effSpeed = (state.voice.avgSpeed * 3.6 < 10) ? 13.8 : state.voice.avgSpeed;
-            const timeMin = (state.nav.distance / effSpeed) / 60;
+            
+            // Použij vzdálenost cesty pokud existuje, jinak přímou vzdálenost
+            const displayDist = state.nav.path ? state.nav.distance : dist;
+            const timeMin = (displayDist / effSpeed) / 60;
 
             document.getElementById('hud').classList.add('active');
             document.getElementById('timeEta').textContent = formatTime(timeMin);
-            document.getElementById('distance').textContent = formatDist(state.nav.distance);
+            document.getElementById('distance').textContent = formatDist(displayDist);
             document.getElementById('arrival').textContent = getArrival(timeMin);
             document.getElementById('targetName').textContent = stripColors(state.nav.target.name);
 
-            // Turn detection & voice guidance
-            const turn = detectTurn(state.nav.path);
-            const icon = document.getElementById('turnIcon');
+            // Turn detection & voice guidance - pouze pokud máme cestu
+            if (state.nav.path) {
+              const turn = detectTurn(state.nav.path);
+              const icon = document.getElementById('turnIcon');
             
             if (turn) {
               // Ikony podle typu odbočky
-              if (turn.type === 'slight_left') icon.textContent = '↖️';
+              if (turn.isRoundabout) {
+                icon.textContent = '🔄'; // Kruhový objezd
+              }
+              else if (turn.type === 'slight_left') icon.textContent = '↖️';
               else if (turn.type === 'slight_right') icon.textContent = '↗️';
               else if (turn.type === 'left') icon.textContent = '⬅️';
               else if (turn.type === 'right') icon.textContent = '➡️';
               else if (turn.type === 'sharp_left') icon.textContent = '↩️';
               else if (turn.type === 'sharp_right') icon.textContent = '↪️';
               
-              // Reset když PROJÍŽDÍŠ zatáčku (blíž než 20m)
-              if (turn.dist < 20 && state.voice.lastTurn) {
-                console.log(`✅ Turn passed (${turn.dist.toFixed(0)}m), resetting voice state`);
-                state.voice.lastTurn = null;
-                state.voice.lastTurnTime = 0;
+              // Reset když PROJÍŽDÍŠ zatáčku (blíž než 10m nebo když se změnil typ)
+              if (turn.dist < 10) {
+                const currentTurnId = `${turn.type}_${turn.index}`;
+                if (state.voice.lastTurnId === currentTurnId) {
+                  console.log(`✅ Turn passed (${turn.dist.toFixed(0)}m), resetting voice state`);
+                  state.voice.lastTurnId = null;
+                  state.voice.lastTurnTime = 0;
+                  state.voice.lastTurnStage = null;
+                }
               }
               
-              // Hlasová navigace - JEDNODUŠŠÍ SYSTÉM
+              // Hlasová navigace - VYLEPŠENÝ SYSTÉM
               if (state.ui.soundEnabled) {
                 const now = Date.now();
                 const timeSince = now - state.voice.lastTurnTime;
                 const d = Math.round(turn.dist);
                 
-                const turnText = {
-                  'slight_left': 'turn slightly left',
-                  'slight_right': 'turn slightly right', 
-                  'left': 'turn left',
-                  'right': 'turn right',
-                  'sharp_left': 'turn sharp left',
-                  'sharp_right': 'turn sharp right'
-                }[turn.type] || 'continue straight';
+                // Unikátní ID zatáčky (typ + index v cestě - NIE vzdálenost!)
+                const turnId = `${turn.type}_${turn.index}`;
+                
+                // Speciální text pro kruhové objezdy
+                let turnText;
+                if (turn.isRoundabout) {
+                  turnText = turn.type.includes('left') ? 'enter roundabout and turn left' : 'enter roundabout and turn right';
+                } else {
+                  turnText = {
+                    'slight_left': 'turn slightly left',
+                    'slight_right': 'turn slightly right', 
+                    'left': 'turn left',
+                    'right': 'turn right',
+                    'sharp_left': 'turn sharp left',
+                    'sharp_right': 'turn sharp right'
+                  }[turn.type] || 'continue straight';
+                }
                 
                 let shouldSpeak = false;
                 let message = '';
+                let stage = null;
                 
-                // Hlášení podle vzdálenosti:
+                // Hlášení podle vzdálenosti - s kontrolou na duplicity
                 // 1. První varování: 100-120m
-                if (d >= 100 && d <= 120 && timeSince > 10000) {
-                  shouldSpeak = true;
-                  message = `In ${d} meters ${turnText}`;
-                  state.voice.lastTurn = `warn1_${turn.type}_${turn.dist}`;
-                  state.voice.lastTurnTime = now;
+                if (d >= 100 && d <= 120) {
+                  stage = 'warn1';
+                  if (state.voice.lastTurnId !== turnId || state.voice.lastTurnStage !== stage) {
+                    if (timeSince > 8000) { // Minimální čas mezi hlášeními
+                      shouldSpeak = true;
+                      message = `In ${d} meters ${turnText}`;
+                    }
+                  }
                 }
-                // 2. Druhé varování: 70-90m
-                else if (d >= 70 && d < 90 && timeSince > 7000) {
-                  shouldSpeak = true;
-                  message = `In ${d} meters ${turnText}`;
-                  state.voice.lastTurn = `warn2_${turn.type}_${turn.dist}`;
-                  state.voice.lastTurnTime = now;
+                // 2. Druhé varování: 60-80m
+                else if (d >= 60 && d < 80) {
+                  stage = 'warn2';
+                  if (state.voice.lastTurnId !== turnId || state.voice.lastTurnStage !== stage) {
+                    if (timeSince > 6000) {
+                      shouldSpeak = true;
+                      message = `In ${d} meters ${turnText}`;
+                    }
+                  }
                 }
-                // 3. Poslední varování: 40-60m
-                else if (d >= 40 && d < 60 && timeSince > 5000) {
-                  shouldSpeak = true;
-                  message = `${turnText.charAt(0).toUpperCase() + turnText.slice(1)}`;
-                  state.voice.lastTurn = `final_${turn.type}_${turn.dist}`;
-                  state.voice.lastTurnTime = now;
+                // 3. Poslední varování: 30-50m
+                else if (d >= 30 && d < 50) {
+                  stage = 'final';
+                  if (state.voice.lastTurnId !== turnId || state.voice.lastTurnStage !== stage) {
+                    if (timeSince > 4000) {
+                      shouldSpeak = true;
+                      message = `${turnText.charAt(0).toUpperCase() + turnText.slice(1)}`;
+                    }
+                  }
                 }
                 
                 if (shouldSpeak) {
-                  console.log(`🔊 VOICE: "${message}" (dist: ${d}m, angle: ${turn.angle.toFixed(1)}°)`);
+                  console.log(`🔊 VOICE: "${message}" (dist: ${d}m, angle: ${turn.angle.toFixed(1)}°, id: ${turnId}, stage: ${stage})`);
                   speak(message);
+                  state.voice.lastTurnId = turnId;
+                  state.voice.lastTurnStage = stage;
+                  state.voice.lastTurnTime = now;
                 }
               }
             } else {
+              // Není zatáčka - zobraz šipku rovně
               icon.textContent = '⬆️';
             }
+          } else {
+            // Žádná cesta - zobraz "navigating" ikonu
+            document.getElementById('turnIcon').textContent = '🧭';
           }
         }
-      } else {
-        document.getElementById('hud').classList.remove('active');
       }
+    }
 
       // Cars
       state.cars.forEach(car => {
@@ -1267,6 +1689,36 @@
     
     document.getElementById('playersBtn').addEventListener('click', () => {
       document.getElementById('playerList').classList.toggle('show');
+    });
+    
+    // Přepínání pathfinding algoritmu
+    const algorithms = ['astar', 'dijkstra', 'bidirectional', 'greedy'];
+    const algorithmNames = {
+      'astar': { short: 'A*', long: 'A* (rychlý, heuristický)' },
+      'dijkstra': { short: 'DJ', long: 'Dijkstra (spolehlivý)' },
+      'bidirectional': { short: 'BI', long: 'Bidirectional A* (obousměrný)' },
+      'greedy': { short: 'GR', long: 'Greedy (nejrychlejší, může selhat)' }
+    };
+    let currentAlgoIndex = 0;
+    
+    document.getElementById('algoBtn').addEventListener('click', () => {
+      currentAlgoIndex = (currentAlgoIndex + 1) % algorithms.length;
+      const algo = algorithms[currentAlgoIndex];
+      const btn = document.getElementById('algoBtn');
+      
+      btn.textContent = algorithmNames[algo].short;
+      btn.title = algorithmNames[algo].long;
+      
+      // Pošli změnu do workeru
+      worker.postMessage({ type: 'SET_ALGORITHM', payload: algo });
+      
+      // Přepočítej cestu pokud existuje target
+      if (state.nav.target) {
+        state.nav.path = null;
+        requestPath();
+      }
+      
+      console.log(`🔧 Přepnuto na ${algo} algoritmus`);
     });
 
     // Canvas controls

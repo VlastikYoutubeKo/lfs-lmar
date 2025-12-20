@@ -30,3 +30,5 @@ radio_config.json
 # Temporary files
 *.tmp
 *.temp
+music/
+playlists/

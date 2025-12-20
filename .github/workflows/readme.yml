@@ -1,0 +1,156 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        # Nainstalujeme moduly, aby byly součástí ZIPu a uživatel to nemusel řešit
+        run: npm install --production
+      
+      # --- AI RELEASE NOTES (Beze změny) ---
+      - name: Create Release Notes Script
+        shell: powershell
+        run: |
+          $scriptContent = @"
+          import { execSync } from 'child_process';
+          import fs from 'fs';
+          const GEMINI_MODEL = 'gemini-3-flash-preview'; 
+          try { execSync('git fetch --tags --force'); } catch (e) {}
+          let commits = '';
+          let diff = '';
+          try {
+            const prevTag = execSync('git describe --tags --abbrev=0 HEAD^').toString().trim();
+            const range = prevTag + '..HEAD';
+            commits = execSync('git log ' + range + ' --pretty=format:"- %s (%an)"').toString();
+            diff = execSync('git diff ' + range + ' --stat -- ":!package-lock.json" ":!dist/*" ":!node_modules/*"').toString();
+          } catch (e) { commits = 'Initial release or error fetching history.'; }
+          
+          if (!commits) commits = 'No commit history available.';
+
+          const tagName = process.env.TAG_NAME || 'Unknown Version';
+          const prompt = 'You are a Release Manager. Write release notes for ' + tagName + ' based on the commits below.\\n\\n' +
+            'COMMITS:\\n' + commits + '\\n\\n' +
+            'STATS:\\n' + diff + '\\n\\n' +
+            'STRICT OUTPUT FORMAT RULES:\\n' +
+            '1. Start with title: # Release Notes - ' + tagName + '\\n' +
+            '2. Section 1: ## 🚀 Improvements\\n' +
+            '3. Section 2: ## 🐞 Bug Fixes\\n' +
+            '4. Section 3: ## 🔧 Technical Notes\\n' +
+            '5. Formatting: Use bullet points.\\n' +
+            '6. Do NOT include intro/footer.';
+
+          async function run() {
+            if (!process.env.GEMINI_API_KEY) { fs.writeFileSync('release_body.md', '## Manual Check Required'); return; }
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + process.env.GEMINI_API_KEY;
+            try {
+              const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+              const data = await response.json();
+              if (data.candidates) fs.writeFileSync('release_body.md', data.candidates[0].content.parts[0].text);
+              else fs.writeFileSync('release_body.md', '## AI Generation Failed');
+            } catch (e) { fs.writeFileSync('release_body.md', '## AI Error: ' + e.message); }
+          }
+          run();
+          "@
+          Set-Content -Path "release-notes.js" -Value $scriptContent -Encoding UTF8
+
+      - name: Generate AI Notes
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: node release-notes.js
+
+      - name: Prepare Release Body
+        shell: powershell
+        run: |
+          $footer = @"
+          
+          ---
+          *Released by @VlastikYoutubeKo*
+
+          ### 📦 Installation
+          1. Install Node.js (v20+)
+          2. Download and Extract ZIP
+          3. Run `START.bat`
+          "@
+          Add-Content -Path release_body.md -Value $footer
+
+      # --- NOVÝ KROK: KOPÍROVÁNÍ ZDROJOVÉHO KÓDU ---
+      - name: Package Source Code
+        shell: powershell
+        run: |
+          $releaseDir = "release\LFS-LiveMap-Radio"
+          New-Item -ItemType Directory -Force -Path $releaseDir
+          
+          # Seznam souborů a složek, které chceme v ZIPu
+          # Zahrnujeme node_modules, aby to uživatel nemusel instalovat
+          $filesToCopy = @(
+            "public",
+            "node_modules",
+            "server.js",
+            "radio_browser.js",
+            "abradia_api.js",
+            "track_names.js",
+            "gps_logger.js",
+            "tc_locations.js",
+            "local_music_addon.js",
+            "package.json",
+            "START.bat"
+          )
+
+          foreach ($item in $filesToCopy) {
+            if (Test-Path $item) {
+              Copy-Item -Path $item -Destination $releaseDir -Recurse -Force
+            }
+          }
+
+          # Inject verze do README
+          $version = "${{ github.ref_name }}"
+          $readmeContent = Get-Content "README.md" -Raw
+          $readmeContent = $readmeContent -replace '\{\{VERSION\}\}', $version
+          Set-Content -Path "$releaseDir\README.md" -Value $readmeContent
+          
+          # Config
+          if (-not (Test-Path "$releaseDir\radio_config.json")) {
+              if (Test-Path "radio_config.example.json") {
+                  Copy-Item "radio_config.example.json" -Destination "$releaseDir\radio_config.json"
+              } elseif (Test-Path "radio_config.json") {
+                   Copy-Item "radio_config.json" -Destination "$releaseDir\radio_config.json"
+              }
+          }
+
+      - name: Create release archive
+        run: |
+          cd release
+          Compress-Archive -Path LFS-LiveMap-Radio -DestinationPath LFS-LiveMap-Radio-${{ github.ref_name }}.zip
+        shell: powershell
+      
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/LFS-LiveMap-Radio-${{ github.ref_name }}.zip
+          generate_release_notes: false 
+          body_path: release_body.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

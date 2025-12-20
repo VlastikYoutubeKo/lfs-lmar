@@ -1,194 +1,142 @@
-# 🏁 LFS Live Map + Radio
+# 🏁 LFS Live Map + Radio {{VERSION}}
 
-Live For Speed InSim aplikace kombinující real-time mapu všech hráčů na serveru s integrovaným internetovým rádiem.
+Live For Speed InSim application combining a real-time server map with an integrated internet radio player.
 
 ## 📦 Releases
 
-Stáhni si poslední verzi pomocí `git clone https://github.com/vlastikyoutubeko/lfs-lmar`
+Download the latest version from the [Releases page](https://github.com/VlastikYoutubeKo/lfs-lmar/releases).
 
-## ✨ Funkce
+## ✨ Features
 
-- **Live Mapa** - Real-time pozice všech hráčů na serveru
-- **9 Tratí** - Blackwood, South City, Fern Bay, Aston, Kyoto, Westhill, Autocross, Rockingham, Layout Square
-- **Internetové Rádio** - 30,000+ mezinárodních stanic + České stanice (Abradia.cz)
-- **InSim GUI** - Ovládání přímo v LFS
-- **Metadata** - Zobrazení aktuálně hrající skladby
-- **Multi-jazyčnost** - Angličtina / Čeština
-- **Sledování hráčů** - Klikni na hráče v seznamu pro automatické sledování
+- **Live Map** - Real-time positioning of all players on the server
+- **9 Supported Tracks** - Blackwood, South City, Fern Bay, Aston, Kyoto, Westhill, Autocross, Rockingham, Layout Square
+- **Internet Radio** - 30,000+ international stations + Czech stations (Abradia.cz)
+- **InSim GUI** - Control the radio directly inside LFS
+- **Metadata** - "Now Playing" overlay with song info
+- **Multilingual** - English / Czech support
+- **Player Tracking** - Click on a player in the list to auto-follow camera
 
-## 🚀 Rychlý start (EXE verze)
+## 🚀 Quick Start
 
-1. **Stáhni poslední release** z [Releases](https://github.com/VlastikYoutubeKo/lfs-lmar/releases)
-2. **Rozbal ZIP** do libovolné složky
-3. **Spusť `lfs-live-map-radio.exe`** (nebo `START.bat`)
-4. **V LFS zadej:** `/insim 29999`
-5. **Otevři prohlížeč:** `http://localhost:3000`
+This application runs on Node.js.
 
-### Požadavky pro radio:
-- **MPV** (doporučeno): `choco install mpv`
+### Prerequisites
+- **Node.js** (Version 18 or newer): [Download Here](https://nodejs.org/)
+- **MPV Player** (Recommended for Radio): `choco install mpv` (or add to PATH)
+
+### Installation
+1. **Download the latest ZIP** from [Releases](https://github.com/VlastikYoutubeKo/lfs-lmar/releases)
+2. **Extract** the ZIP content to a folder.
+3. **Double-click `START.bat`** to launch the server.
+4. **In LFS chat, type:** `/insim 29999`
+5. **Open browser:** `http://localhost:3000`
 
 ## 🛠️ Development Setup
 
 ```bash
-# 1. Klonuj repo
+# 1. Clone repo
 git clone https://github.com/VlastikYoutubeKo/lfs-lmar.git
 cd lfs-live-map-radio
 
-# 2. Instaluj dependencies
+# 2. Install dependencies
 npm install
 
-# 3. Spusť dev server
+# 3. Run dev server
 npm start
 
-# Nebo s auto-reloadem:
-npm run dev
 ```
 
-## 📦 Building
-
-### Lokální build:
-
-```bash
-# Windows:
-BUILD.bat
-
-# Nebo přímo:
-npm run build
-```
-
-Výsledek najdeš v `dist/` složce.
-
-## 📖 Používání
+## 📖 Usage Guide
 
 ### InSim GUI Commands:
 
-- `/o gui` - Obnovit GUI pokud zmizelo
-- `/o np` - Zobrazit Now Playing overlay
+* `/o gui` - Reset GUI if it disappears
+* `/o np` - Show "Now Playing" overlay manually
 
 ### Radio GUI:
 
-1. **Klikni na ikonu [R]** v pravém horním rohu LFS
-2. **Vyber kategorii:**
-   - Oblíbené
-   - Nedávné
-   - Abradia.cz (České stanice)
-   - Hledat (mezinárodní stanice)
-3. **Ovládání hlasitosti:** +/- tlačítka
-4. **Language:** Přepínač EN/CZ
+1. **Click the [R] icon** in the top-right corner of LFS screen
+2. **Select Category:** Favorites, Recent, Abradia.cz, or Search.
+3. **Volume Control:** +/- buttons
+4. **Language:** Switch between EN/CZ
 
-### Web Mapa:
+### Web Map:
 
-- **Zoom:** Kolečko myši nebo tlačítka +/-
-- **Posun:** Táhni myší
-- **Reset:** Tlačítko ⌂
-- **Sledování hráče:** Klikni na jméno v postranním panelu
-- **Hamburger menu:** Pravý horní roh - seznam hráčů a informace
+* **Zoom:** Mouse wheel or +/- buttons
+* **Pan:** Click and drag
+* **Reset View:** Home button (⌂)
+* **Follow Player:** Click player name in the sidebar list
 
-## 🎮 LFS Konfigurace
+## 🎮 LFS Configuration
 
-### Manuální připojení:
+### Manual Connection:
 
-V LFS zadej:
+If the app doesn't connect automatically, type this in LFS:
+
 ```
 /insim 29999
+
 ```
 
-## 📁 Struktura projektu
+## 📁 Project Structure
 
 ```
 lfs-live-map-radio/
-├── server.js              # Hlavní server (InSim + WebSocket)
-├── build.js               # Build script
-├── BUILD.bat              # Windows build launcher
-├── START.bat              # User-friendly launcher
-├── package.json           # Dependencies & scripts
-├── radio_browser.js       # Radio Browser API
-├── abradia_api.js         # Abradia.cz API
-├── track_names.js         # LFS track names
-├── public/
-│   ├── index.html        # Live map interface
-│   ├── radio.html        # Sony DSX-M80 radio emulator
-│   ├── track_configs.js  # Track coordinate mappings
-│   └── tracks/           # Track PNG images (9 tracks)
-└── .github/
-    └── workflows/
-        └── build-release.yml  # Automated builds
+├── server.js              # Main server logic
+├── START.bat              # Launcher script
+├── public/                # Web interface files
+├── radio_browser.js       # Radio API
+├── abradia_api.js         # Czech Radio API
+└── .github/workflows/     # CI/CD
+
 ```
 
-## 🔧 Technologie
+## 🔧 Tech Stack
 
-- **Node.js 20** - Runtime
-- **node-insim** - LFS InSim protocol
-- **react-node-insim** - InSim GUI components
-- **WebSocket** - Real-time communication
-- **Canvas API** - Map rendering
-- **MPV/VLC** - Audio playback
-- **pkg** - Executable packaging
+* **Node.js** - Runtime
+* **node-insim** - LFS InSim protocol
+* **WebSocket** - Real-time communication
+* **Canvas API** - Map rendering
+* **MPV** - Audio playback
 
-## 🌐 API Integrace
+## 📝 Configuration
 
-- **Radio Browser API** - 30,000+ international stations
-- **Abradia.cz API** - Czech radio stations with metadata
-- **LFS InSim Protocol** - Live game data
-
-## 📝 Konfigurace
-
-### radio_config.json
+The `radio_config.json` file is generated automatically on the first run.
 
 ```json
 {
-  "favorites": [
-    {
-      "name": "Station Name",
-      "url": "https://stream-url.com/stream",
-      "metadataProvider": "abradia",
-      "metadataSlug": "station-slug"
-    }
-  ],
+  "favorites": [],
   "recent": [],
   "lang": "en"
 }
+
 ```
 
 ## 🐛 Troubleshooting
 
-### Radio nehraje:
-- Zkontroluj instalaci MPV/VLC: `mpv --version` nebo `vlc --version`
-- Windows: Přidej MPV do PATH
-- Zkontroluj firewall
+### "Node is not recognized"
 
-### GUI zmizelo:
-- Zadej v LFS: `/o gui`
-- Respawn vozu automaticky obnoví GUI
+* Ensure you have installed Node.js from [nodejs.org](https://nodejs.org/).
+* Restart your computer after installation.
 
-### Port konflikt:
-- Porty 3000, 3001, 29999 musí být volné
-- Zavři jiné aplikace na těchto portech
+### Radio not playing
 
-### Mapa se nenačítá:
-- Zkontroluj `public/tracks/` obsahuje PNG soubory
-- Otevři browser console (F12) pro chyby
+* Install MPV player and ensure it is in your system PATH.
+* - Use choco `choco install mpv`
+
+### Map not loading
+
+* Check the browser console (F12) for errors.
+* Ensure port 3000 is not used by another application.
 
 ## 📜 License
 
 MIT License - Vlastimil © 2025
 
-## 🤝 Contributing
+## 📧 Contact
 
-Pull requests vítány! Pro větší změny otevři nejprve issue.
-
-## 📧 Kontakt
-
-- GitHub Issues: [Report Bug](https://github.com/VlastikYoutubeKo/lfs-lmar/issues)
-- Discord: @mxnticek
-
-## 🙏 Acknowledgments
-
-- LFS Community
-- node-insim by [@simbroadcasts](https://github.com/simbroadcasts)
-- Radio Browser Project
-- Abradia.cz
+* GitHub Issues: [Report Bug](https://github.com/VlastikYoutubeKo/lfs-lmar/issues)
 
 ---
 
-**Vytvořeno s ❤️ pro Live For Speed komunitu**
+**Made with ❤️ for the Live For Speed Community**
