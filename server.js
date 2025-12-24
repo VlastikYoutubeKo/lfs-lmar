@@ -981,7 +981,7 @@ function renderUI(ucid, requestedState, extraData = null, page = 0) {
         }
         // Page 1 - local music
         else if (page === 1) {
-            sendBtn(ucid, 222, L+1, T+5, 28, 5, `^2[ ^7${t('BTN_LOCAL_MUSIC')} ^2]`, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+            sendBtn(ucid, 234, L+1, T+5, 28, 5, `^2[ ^7${t('BTN_LOCAL_MUSIC')} ^2]`, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
             sendBtn(ucid, 223, L+1, T+11, 28, 5, `^6[ ^7${t('BTN_PLAYLISTS')} ^6]`, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
             sendBtn(ucid, 235, L+1, T+35, 8, 5, '^3<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         }
@@ -1235,7 +1235,7 @@ inSim.on(PacketType.ISP_BTC, async (p) => {
     else if (p.ClickID === 227) { if (ENABLE_DEBUG) console.log('[CLICK] Previous'); playPrevTrack(); }
     else if (p.ClickID === 228) { if (ENABLE_DEBUG) console.log('[CLICK] Next'); playNextTrack(); }
     else if (p.ClickID === 229) { if (ENABLE_DEBUG) console.log('[CLICK] Shuffle'); toggleShuffle(); if (isOverlayVisible) showNowPlayingOverlay(lastNowPlayingInfo); }
-    else if (p.ClickID === 238) { 
+    else if (p.ClickID === 238 || p.ClickID === 234) { 
         // Clear search při kliknutí na search box
         if (localMusicSearchQuery) {
             localMusicSearchQuery = '';
@@ -1247,8 +1247,8 @@ inSim.on(PacketType.ISP_BTC, async (p) => {
     else if (p.ClickID === 211) renderUI(MY_UCID, 'recent');
     else if (p.ClickID === 212) renderUI(MY_UCID, 'abradia', await getAbradiaStations(), 0);
     else if (p.ClickID === 220) renderUI(MY_UCID, 'search');
-    else if (p.ClickID === 223) { if (ENABLE_DEBUG) console.log('[CLICK] LOCAL MUSIC button'); refreshLocalMusic(); renderUI(MY_UCID, 'local_music'); }
-    else if (p.ClickID === 224) { if (ENABLE_DEBUG) console.log('[CLICK] PLAYLISTS button'); refreshLocalMusic(); renderUI(MY_UCID, 'playlists'); }
+    else if (p.ClickID === 234) { if (ENABLE_DEBUG) console.log('[CLICK] LOCAL MUSIC button'); refreshLocalMusic(); renderUI(MY_UCID, 'local_music'); }
+    else if (p.ClickID === 223) { if (ENABLE_DEBUG) console.log('[CLICK] PLAYLISTS button'); refreshLocalMusic(); renderUI(MY_UCID, 'playlists'); }
     else if (p.ClickID === 222) { if (ENABLE_DEBUG) console.log('[CLICK] BACK button'); renderUI(MY_UCID, 'main'); }
     else if (p.ClickID === 213) { currentLang = currentLang === 'en' ? 'cz' : 'en'; saveConfig(); renderUI(MY_UCID, 'main'); }
     else if (p.ClickID === 235 || p.ClickID === 237) {

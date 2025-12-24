@@ -21,6 +21,782 @@
   ],
   "recent": [
     {
+      "name": "(ﾉ◕ヮ◕)ﾉ＊：･ﾟ✧ NOSTALGIC HEXD NIGHTCORE MIX VOL. 2 [A3rTqOzGY4U]",
+      "playedAt": "2025-12-24T14:17:28.464Z",
+      "url": "/music/(%EF%BE%89%E2%97%95%E3%83%AE%E2%97%95)%EF%BE%89%EF%BC%8A%EF%BC%9A%EF%BD%A5%EF%BE%9F%E2%9C%A7%20NOSTALGIC%20HEXD%20NIGHTCORE%20MIX%20VOL.%202%20%5BA3rTqOzGY4U%5D.mp3",
+      "provider": "local",
+      "id": "local_0",
+      "filename": "(ﾉ◕ヮ◕)ﾉ＊：･ﾟ✧ NOSTALGIC HEXD NIGHTCORE MIX VOL. 2 [A3rTqOzGY4U].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\(ﾉ◕ヮ◕)ﾉ＊：･ﾟ✧ NOSTALGIC HEXD NIGHTCORE MIX VOL. 2 [A3rTqOzGY4U].mp3"
+    },
+    {
+      "name": "playlist_9850",
+      "playedAt": "2025-12-24T14:17:14.391Z",
+      "url": "http://192.168.1.135:9000/czsk/22711.ts",
+      "provider": "playlist",
+      "id": "playlist_0",
+      "filename": "playlist_9850.m3u",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\playlists\\playlist_9850.m3u",
+      "tracks": [
+        {
+          "id": "m3u_0",
+          "name": "Stream 1",
+          "url": "http://192.168.1.135:9000/czsk/22711.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_1",
+          "name": "Stream 2",
+          "url": "http://192.168.1.135:9000/czsk/22710.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_2",
+          "name": "Stream 3",
+          "url": "http://192.168.1.135:9000/czsk/22702.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_3",
+          "name": "Stream 4",
+          "url": "http://192.168.1.135:9000/czsk/22701.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_4",
+          "name": "Stream 5",
+          "url": "http://192.168.1.135:9000/czsk/22703.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_5",
+          "name": "Stream 6",
+          "url": "http://192.168.1.135:9000/czsk/22704.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_6",
+          "name": "Stream 7",
+          "url": "http://192.168.1.135:9000/czsk/22705.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_7",
+          "name": "Stream 8",
+          "url": "http://192.168.1.135:9000/czsk/22706.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_8",
+          "name": "Stream 9",
+          "url": "http://192.168.1.135:9000/czsk/22707.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_9",
+          "name": "Stream 10",
+          "url": "http://192.168.1.135:9000/czsk/22708.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_10",
+          "name": "Stream 11",
+          "url": "http://192.168.1.135:9000/czsk/22700.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_11",
+          "name": "Stream 12",
+          "url": "http://192.168.1.135:9000/czsk/22709.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_12",
+          "name": "Stream 13",
+          "url": "http://192.168.1.135:9000/czsk/22728.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_13",
+          "name": "Stream 14",
+          "url": "http://192.168.1.135:9000/czsk/22699.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_14",
+          "name": "Stream 15",
+          "url": "http://192.168.1.135:9000/czsk/22771.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_15",
+          "name": "Stream 16",
+          "url": "http://192.168.1.135:9000/czsk/22764.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_16",
+          "name": "Stream 17",
+          "url": "http://192.168.1.135:9000/czsk/22729.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_17",
+          "name": "Stream 18",
+          "url": "http://192.168.1.135:9000/czsk/22713.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_18",
+          "name": "Stream 19",
+          "url": "http://192.168.1.135:9000/czsk/22715.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_19",
+          "name": "Stream 20",
+          "url": "http://192.168.1.135:9000/czsk/22727.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_20",
+          "name": "Stream 21",
+          "url": "http://192.168.1.135:9000/czsk/22718.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_21",
+          "name": "Stream 22",
+          "url": "http://192.168.1.135:9000/czsk/22719.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_22",
+          "name": "Stream 23",
+          "url": "http://192.168.1.135:9000/czsk/22720.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_23",
+          "name": "Stream 24",
+          "url": "http://192.168.1.135:9000/czsk/22725.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_24",
+          "name": "Stream 25",
+          "url": "http://192.168.1.135:9000/czsk/22657.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_25",
+          "name": "Stream 26",
+          "url": "http://192.168.1.135:9000/czsk/22767.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_26",
+          "name": "Stream 27",
+          "url": "http://192.168.1.135:9000/czsk/22654.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_27",
+          "name": "Stream 28",
+          "url": "http://192.168.1.135:9000/czsk/22741.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_28",
+          "name": "Stream 29",
+          "url": "http://192.168.1.135:9000/czsk/22653.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_29",
+          "name": "Stream 30",
+          "url": "http://192.168.1.135:9000/czsk/22743.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_30",
+          "name": "Stream 31",
+          "url": "http://192.168.1.135:9000/czsk/22656.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_31",
+          "name": "Stream 32",
+          "url": "http://192.168.1.135:9000/czsk/22655.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_32",
+          "name": "Stream 33",
+          "url": "http://192.168.1.135:9000/czsk/22712.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_33",
+          "name": "Stream 34",
+          "url": "http://192.168.1.135:9000/czsk/22714.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_34",
+          "name": "Stream 35",
+          "url": "http://192.168.1.135:9000/czsk/22652.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_35",
+          "name": "Stream 36",
+          "url": "http://192.168.1.135:9000/czsk/22768.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_36",
+          "name": "Stream 37",
+          "url": "http://192.168.1.135:9000/czsk/22661.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_37",
+          "name": "Stream 38",
+          "url": "http://192.168.1.135:9000/czsk/22658.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_38",
+          "name": "Stream 39",
+          "url": "http://192.168.1.135:9000/czsk/22659.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_39",
+          "name": "Stream 40",
+          "url": "http://192.168.1.135:9000/czsk/22749.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_40",
+          "name": "Stream 41",
+          "url": "http://192.168.1.135:9000/czsk/22660.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_41",
+          "name": "Stream 42",
+          "url": "http://192.168.1.135:9000/czsk/22730.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_42",
+          "name": "Stream 43",
+          "url": "http://192.168.1.135:9000/czsk/22731.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_43",
+          "name": "Stream 44",
+          "url": "http://192.168.1.135:9000/czsk/22753.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_44",
+          "name": "Stream 45",
+          "url": "http://192.168.1.135:9000/czsk/22663.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_45",
+          "name": "Stream 46",
+          "url": "http://192.168.1.135:9000/czsk/22662.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_46",
+          "name": "Stream 47",
+          "url": "http://192.168.1.135:9000/czsk/22672.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_47",
+          "name": "Stream 48",
+          "url": "http://192.168.1.135:9000/czsk/22763.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_48",
+          "name": "Stream 49",
+          "url": "http://192.168.1.135:9000/czsk/22772.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_49",
+          "name": "Stream 50",
+          "url": "http://192.168.1.135:9000/czsk/22666.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_50",
+          "name": "Stream 51",
+          "url": "http://192.168.1.135:9000/czsk/22664.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_51",
+          "name": "Stream 52",
+          "url": "http://192.168.1.135:9000/czsk/22769.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_52",
+          "name": "Stream 53",
+          "url": "http://192.168.1.135:9000/czsk/22665.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_53",
+          "name": "Stream 54",
+          "url": "http://192.168.1.135:9000/czsk/22732.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_54",
+          "name": "Stream 55",
+          "url": "http://192.168.1.135:9000/czsk/22673.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_55",
+          "name": "Stream 56",
+          "url": "http://192.168.1.135:9000/czsk/22737.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_56",
+          "name": "Stream 57",
+          "url": "http://192.168.1.135:9000/czsk/22738.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_57",
+          "name": "Stream 58",
+          "url": "http://192.168.1.135:9000/czsk/22742.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_58",
+          "name": "Stream 59",
+          "url": "http://192.168.1.135:9000/czsk/22669.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_59",
+          "name": "Stream 60",
+          "url": "http://192.168.1.135:9000/czsk/22668.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_60",
+          "name": "Stream 61",
+          "url": "http://192.168.1.135:9000/czsk/22667.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_61",
+          "name": "Stream 62",
+          "url": "http://192.168.1.135:9000/czsk/22671.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_62",
+          "name": "Stream 63",
+          "url": "http://192.168.1.135:9000/czsk/22670.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_63",
+          "name": "Stream 64",
+          "url": "http://192.168.1.135:9000/czsk/22777.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_64",
+          "name": "Stream 65",
+          "url": "http://192.168.1.135:9000/czsk/22776.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_65",
+          "name": "Stream 66",
+          "url": "http://192.168.1.135:9000/czsk/22775.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_66",
+          "name": "Stream 67",
+          "url": "http://192.168.1.135:9000/czsk/22774.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_67",
+          "name": "Stream 68",
+          "url": "http://192.168.1.135:9000/czsk/22734.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_68",
+          "name": "Stream 69",
+          "url": "http://192.168.1.135:9000/czsk/22733.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_69",
+          "name": "Stream 70",
+          "url": "http://192.168.1.135:9000/czsk/22739.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_70",
+          "name": "Stream 71",
+          "url": "http://192.168.1.135:9000/czsk/22724.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_71",
+          "name": "Stream 72",
+          "url": "http://192.168.1.135:9000/czsk/22751.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_72",
+          "name": "Stream 73",
+          "url": "http://192.168.1.135:9000/czsk/22750.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_73",
+          "name": "Stream 74",
+          "url": "http://192.168.1.135:9000/czsk/22752.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_74",
+          "name": "Stream 75",
+          "url": "http://192.168.1.135:9000/czsk/22679.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_75",
+          "name": "Stream 76",
+          "url": "http://192.168.1.135:9000/czsk/22674.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_76",
+          "name": "Stream 77",
+          "url": "http://192.168.1.135:9000/czsk/22675.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_77",
+          "name": "Stream 78",
+          "url": "http://192.168.1.135:9000/czsk/22676.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_78",
+          "name": "Stream 79",
+          "url": "http://192.168.1.135:9000/czsk/22773.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_79",
+          "name": "Stream 80",
+          "url": "http://192.168.1.135:9000/czsk/22677.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_80",
+          "name": "Stream 81",
+          "url": "http://192.168.1.135:9000/czsk/22678.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_81",
+          "name": "Stream 82",
+          "url": "http://192.168.1.135:9000/czsk/22698.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_82",
+          "name": "Stream 83",
+          "url": "http://192.168.1.135:9000/czsk/22770.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_83",
+          "name": "Stream 84",
+          "url": "http://192.168.1.135:9000/czsk/22680.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_84",
+          "name": "Stream 85",
+          "url": "http://192.168.1.135:9000/czsk/22681.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_85",
+          "name": "Stream 86",
+          "url": "http://192.168.1.135:9000/czsk/22682.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_86",
+          "name": "Stream 87",
+          "url": "http://192.168.1.135:9000/czsk/22683.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_87",
+          "name": "Stream 88",
+          "url": "http://192.168.1.135:9000/czsk/22717.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_88",
+          "name": "Stream 89",
+          "url": "http://192.168.1.135:9000/czsk/22684.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_89",
+          "name": "Stream 90",
+          "url": "http://192.168.1.135:9000/czsk/22685.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_90",
+          "name": "Stream 91",
+          "url": "http://192.168.1.135:9000/czsk/22686.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_91",
+          "name": "Stream 92",
+          "url": "http://192.168.1.135:9000/czsk/22689.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_92",
+          "name": "Stream 93",
+          "url": "http://192.168.1.135:9000/czsk/22688.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_93",
+          "name": "Stream 94",
+          "url": "http://192.168.1.135:9000/czsk/22687.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_94",
+          "name": "Stream 95",
+          "url": "http://192.168.1.135:9000/czsk/22690.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_95",
+          "name": "Stream 96",
+          "url": "http://192.168.1.135:9000/czsk/22748.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_96",
+          "name": "Stream 97",
+          "url": "http://192.168.1.135:9000/czsk/22691.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_97",
+          "name": "Stream 98",
+          "url": "http://192.168.1.135:9000/czsk/22692.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_98",
+          "name": "Stream 99",
+          "url": "http://192.168.1.135:9000/czsk/22694.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_99",
+          "name": "Stream 100",
+          "url": "http://192.168.1.135:9000/czsk/22693.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_100",
+          "name": "Stream 101",
+          "url": "http://192.168.1.135:9000/czsk/22695.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_101",
+          "name": "Stream 102",
+          "url": "http://192.168.1.135:9000/czsk/22716.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_102",
+          "name": "Stream 103",
+          "url": "http://192.168.1.135:9000/czsk/22696.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_103",
+          "name": "Stream 104",
+          "url": "http://192.168.1.135:9000/czsk/22766.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_104",
+          "name": "Stream 105",
+          "url": "http://192.168.1.135:9000/czsk/22765.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_105",
+          "name": "Stream 106",
+          "url": "http://192.168.1.135:9000/czsk/22697.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_106",
+          "name": "Stream 107",
+          "url": "http://192.168.1.135:9000/czsk/22740.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_107",
+          "name": "Stream 108",
+          "url": "http://192.168.1.135:9000/czsk/22735.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_108",
+          "name": "Stream 109",
+          "url": "http://192.168.1.135:9000/czsk/22736.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_109",
+          "name": "Stream 110",
+          "url": "http://192.168.1.135:9000/czsk/22744.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_110",
+          "name": "Stream 111",
+          "url": "http://192.168.1.135:9000/czsk/22745.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_111",
+          "name": "Stream 112",
+          "url": "http://192.168.1.135:9000/czsk/22746.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_112",
+          "name": "Stream 113",
+          "url": "http://192.168.1.135:9000/czsk/22747.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_113",
+          "name": "Stream 114",
+          "url": "http://192.168.1.135:9000/czsk/22721.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_114",
+          "name": "Stream 115",
+          "url": "http://192.168.1.135:9000/czsk/22726.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_115",
+          "name": "Stream 116",
+          "url": "http://192.168.1.135:9000/czsk/22722.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_116",
+          "name": "Stream 117",
+          "url": "http://192.168.1.135:9000/czsk/22723.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_117",
+          "name": "Stream 118",
+          "url": "http://192.168.1.135:9000/czsk/22754.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_118",
+          "name": "Stream 119",
+          "url": "http://192.168.1.135:9000/czsk/22755.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_119",
+          "name": "Stream 120",
+          "url": "http://192.168.1.135:9000/czsk/22756.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_120",
+          "name": "Stream 121",
+          "url": "http://192.168.1.135:9000/czsk/22757.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_121",
+          "name": "Stream 122",
+          "url": "http://192.168.1.135:9000/czsk/22758.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_122",
+          "name": "Stream 123",
+          "url": "http://192.168.1.135:9000/czsk/22759.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_123",
+          "name": "Stream 124",
+          "url": "http://192.168.1.135:9000/czsk/22760.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_124",
+          "name": "Stream 125",
+          "url": "http://192.168.1.135:9000/czsk/22761.ts",
+          "type": "stream"
+        },
+        {
+          "id": "m3u_125",
+          "name": "Stream 126",
+          "url": "http://192.168.1.135:9000/czsk/22762.ts",
+          "type": "stream"
+        }
+      ]
+    },
+    {
       "name": "Hitrádio North Music",
       "playedAt": "2025-12-21T20:40:20.891Z",
       "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/HITRADIO_NORTH_MUSIC.aac",
@@ -173,24 +949,6 @@
       "id": "local_483",
       "filename": "🔥🔥MUZA DO NIEUDOLNEGO PODRYWANIA DZIEWCZYN W KLUBIE🔥🔥｜ Jokerey Mix #3 [uLnXWKU5T2w].mp3",
       "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\🔥🔥MUZA DO NIEUDOLNEGO PODRYWANIA DZIEWCZYN W KLUBIE🔥🔥｜ Jokerey Mix #3 [uLnXWKU5T2w].mp3"
-    },
-    {
-      "name": "Sash!  - Ecuador (Official Video) [9cQlVww0zKo]",
-      "playedAt": "2025-12-20T21:32:58.163Z",
-      "url": "/music/Sash!%20%20-%20Ecuador%20(Official%20Video)%20%5B9cQlVww0zKo%5D.mp3",
-      "provider": "local",
-      "id": "local_375",
-      "filename": "Sash!  - Ecuador (Official Video) [9cQlVww0zKo].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Sash!  - Ecuador (Official Video) [9cQlVww0zKo].mp3"
-    },
-    {
-      "name": "Majki - 3 PAKI [Official Video] [9Gn5hBusdaw]",
-      "playedAt": "2025-12-20T21:18:16.986Z",
-      "url": "/music/Majki%20-%203%20PAKI%20%5BOfficial%20Video%5D%20%5B9Gn5hBusdaw%5D.mp3",
-      "provider": "local",
-      "id": "local_247",
-      "filename": "Majki - 3 PAKI [Official Video] [9Gn5hBusdaw].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Majki - 3 PAKI [Official Video] [9Gn5hBusdaw].mp3"
     }
   ],
   "lang": "en"
