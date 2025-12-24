@@ -21,6 +21,124 @@
   ],
   "recent": [
     {
+      "name": "Hitrádio North Music",
+      "playedAt": "2025-12-21T20:40:20.891Z",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/HITRADIO_NORTH_MUSIC.aac",
+      "provider": "abradia",
+      "slug": "hitradio-north-music"
+    },
+    {
+      "name": "Rádio Povídka",
+      "playedAt": "2025-12-21T20:39:59.527Z",
+      "url": "https://ice2.radia.cz/povidka128.aac",
+      "provider": "abradia",
+      "slug": "radio-povidka"
+    },
+    {
+      "name": "Rock Radio",
+      "playedAt": "2025-12-21T20:37:28.633Z",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/ROCK_RADIO.aac",
+      "provider": "abradia",
+      "slug": "rock-radio"
+    },
+    {
+      "name": "Rádio BLANÍK",
+      "playedAt": "2025-12-21T20:37:17.049Z",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/RADIO_BLANIK.aac",
+      "provider": "abradia",
+      "slug": "radio-blanik"
+    },
+    {
+      "name": "Kiss Radio - 128MP3",
+      "playedAt": "2025-12-21T20:24:56.618Z",
+      "url": "https://icecast1.play.cz/kissdelta128.mp3",
+      "id": "fac2e54e-c199-46fb-afd9-e47b6f7ee5d4",
+      "country": "CZ",
+      "bitrate": 0,
+      "codec": "MP3"
+    },
+    {
+      "name": "Zeamsone - 7 Dam (FUZE REMIX) [fW4AUQTQ9U4]",
+      "playedAt": "2025-12-21T20:24:18.619Z",
+      "url": "/music/Zeamsone%20-%207%20Dam%20(FUZE%20REMIX)%20%5BfW4AUQTQ9U4%5D.mp3",
+      "provider": "local",
+      "id": "local_454",
+      "filename": "Zeamsone - 7 Dam (FUZE REMIX) [fW4AUQTQ9U4].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Zeamsone - 7 Dam (FUZE REMIX) [fW4AUQTQ9U4].mp3"
+    },
+    {
+      "name": "Inna, Daddy Yankee - More Than Friends (SINDRIX BOOTLEG) [ZOKrmU_5XQE]",
+      "playedAt": "2025-12-21T20:21:08.888Z",
+      "url": "/music/Inna%2C%20Daddy%20Yankee%20-%20More%20Than%20Friends%20(SINDRIX%20BOOTLEG)%20%5BZOKrmU_5XQE%5D.mp3",
+      "provider": "local",
+      "id": "local_192",
+      "filename": "Inna, Daddy Yankee - More Than Friends (SINDRIX BOOTLEG) [ZOKrmU_5XQE].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Inna, Daddy Yankee - More Than Friends (SINDRIX BOOTLEG) [ZOKrmU_5XQE].mp3"
+    },
+    {
+      "name": "Axemo - We Are Free [nf4Lm5VqBfo]",
+      "playedAt": "2025-12-21T20:19:04.642Z",
+      "url": "/music/Axemo%20-%20We%20Are%20Free%20%5Bnf4Lm5VqBfo%5D.mp3",
+      "provider": "local",
+      "id": "local_30",
+      "filename": "Axemo - We Are Free [nf4Lm5VqBfo].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Axemo - We Are Free [nf4Lm5VqBfo].mp3"
+    },
+    {
+      "name": "Masz to coś [k85qRIizO3Y]",
+      "playedAt": "2025-12-21T20:16:26.602Z",
+      "url": "/music/Masz%20to%20co%C5%9B%20%5Bk85qRIizO3Y%5D.mp3",
+      "provider": "local",
+      "id": "local_289",
+      "filename": "Masz to coś [k85qRIizO3Y].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Masz to coś [k85qRIizO3Y].mp3"
+    },
+    {
+      "name": "GERRY GONZA - ASS ON FIRE (FILIP PHILIPS REMIX 2025) [YUgDnnzR0-4]",
+      "playedAt": "2025-12-21T20:16:20.704Z",
+      "url": "/music/GERRY%20GONZA%20-%20ASS%20ON%20FIRE%20(FILIP%20PHILIPS%20REMIX%202025)%20%5BYUgDnnzR0-4%5D.mp3",
+      "provider": "local",
+      "id": "local_155",
+      "filename": "GERRY GONZA - ASS ON FIRE (FILIP PHILIPS REMIX 2025) [YUgDnnzR0-4].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\GERRY GONZA - ASS ON FIRE (FILIP PHILIPS REMIX 2025) [YUgDnnzR0-4].mp3"
+    },
+    {
+      "name": "GEO DA SILVA, JACK MAZZONI & ALIEN CUT - Morena (WAWRZU REMIX) 2025 [g-m5mT_USac]",
+      "playedAt": "2025-12-21T20:15:28.371Z",
+      "url": "/music/GEO%20DA%20SILVA%2C%20JACK%20MAZZONI%20%26%20ALIEN%20CUT%20-%20Morena%20(WAWRZU%20REMIX)%202025%20%5Bg-m5mT_USac%5D.mp3",
+      "provider": "local",
+      "id": "local_154",
+      "filename": "GEO DA SILVA, JACK MAZZONI & ALIEN CUT - Morena (WAWRZU REMIX) 2025 [g-m5mT_USac].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\GEO DA SILVA, JACK MAZZONI & ALIEN CUT - Morena (WAWRZU REMIX) 2025 [g-m5mT_USac].mp3"
+    },
+    {
+      "name": "GEGE & ANDREW DEXX - NASTY (FILIP PHILIPS REMIX 2025) [2iv7sgYuFpU]",
+      "playedAt": "2025-12-21T20:10:32.579Z",
+      "url": "/music/GEGE%20%26%20ANDREW%20DEXX%20-%20NASTY%20(FILIP%20PHILIPS%20REMIX%202025)%20%5B2iv7sgYuFpU%5D.mp3",
+      "provider": "local",
+      "id": "local_153",
+      "filename": "GEGE & ANDREW DEXX - NASTY (FILIP PHILIPS REMIX 2025) [2iv7sgYuFpU].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\GEGE & ANDREW DEXX - NASTY (FILIP PHILIPS REMIX 2025) [2iv7sgYuFpU].mp3"
+    },
+    {
+      "name": "GAZIROVKA & FILIP PHILIPS - BLACK ALE TO MOCNA VIXA [52wFzTHBlNE]",
+      "playedAt": "2025-12-21T20:07:32.779Z",
+      "url": "/music/GAZIROVKA%20%26%20FILIP%20PHILIPS%20-%20BLACK%20ALE%20TO%20MOCNA%20VIXA%20%5B52wFzTHBlNE%5D.mp3",
+      "provider": "local",
+      "id": "local_152",
+      "filename": "GAZIROVKA & FILIP PHILIPS - BLACK ALE TO MOCNA VIXA [52wFzTHBlNE].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\GAZIROVKA & FILIP PHILIPS - BLACK ALE TO MOCNA VIXA [52wFzTHBlNE].mp3"
+    },
+    {
+      "name": "GAZ I BENZYNA ALE TO VIXA (LUXONS REMIX) 2023 [Cwz7WrTgQ24]",
+      "playedAt": "2025-12-21T20:04:59.821Z",
+      "url": "/music/GAZ%20I%20BENZYNA%20ALE%20TO%20VIXA%20(LUXONS%20REMIX)%202023%20%5BCwz7WrTgQ24%5D.mp3",
+      "provider": "local",
+      "id": "local_151",
+      "filename": "GAZ I BENZYNA ALE TO VIXA (LUXONS REMIX) 2023 [Cwz7WrTgQ24].mp3",
+      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\GAZ I BENZYNA ALE TO VIXA (LUXONS REMIX) 2023 [Cwz7WrTgQ24].mp3"
+    },
+    {
       "name": "Italian Disco Mafia - Buona Sera Ciao Ciao (Matson Remix) [2W3Kzw6n7yM]",
       "playedAt": "2025-12-20T21:51:04.108Z",
       "url": "/music/Italian%20Disco%20Mafia%20-%20Buona%20Sera%20Ciao%20Ciao%20(Matson%20Remix)%20%5B2W3Kzw6n7yM%5D.mp3",
@@ -73,132 +191,6 @@
       "id": "local_247",
       "filename": "Majki - 3 PAKI [Official Video] [9Gn5hBusdaw].mp3",
       "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Majki - 3 PAKI [Official Video] [9Gn5hBusdaw].mp3"
-    },
-    {
-      "name": "Malik Montana - Wjazd (Cruisy Remix) [wnlFd4v_8xM]",
-      "playedAt": "2025-12-20T21:15:23.250Z",
-      "url": "/music/Malik%20Montana%20-%20Wjazd%20(Cruisy%20Remix)%20%5BwnlFd4v_8xM%5D.mp3",
-      "provider": "local",
-      "id": "local_265",
-      "filename": "Malik Montana - Wjazd (Cruisy Remix) [wnlFd4v_8xM].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Malik Montana - Wjazd (Cruisy Remix) [wnlFd4v_8xM].mp3"
-    },
-    {
-      "name": "Mix do jazdy nocą w stylu lat 2000 [GcT05_AE7vg]",
-      "playedAt": "2025-12-20T21:15:20.572Z",
-      "url": "/music/Mix%20do%20jazdy%20noc%C4%85%20w%20stylu%20lat%202000%20%5BGcT05_AE7vg%5D.mp3",
-      "provider": "local",
-      "id": "local_301",
-      "filename": "Mix do jazdy nocą w stylu lat 2000 [GcT05_AE7vg].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Mix do jazdy nocą w stylu lat 2000 [GcT05_AE7vg].mp3"
-    },
-    {
-      "name": "(ﾉ◕ヮ◕)ﾉ＊：･ﾟ✧ NOSTALGIC HEXD NIGHTCORE MIX VOL. 2 [A3rTqOzGY4U]",
-      "playedAt": "2025-12-20T21:10:16.940Z",
-      "url": "/music/(%EF%BE%89%E2%97%95%E3%83%AE%E2%97%95)%EF%BE%89%EF%BC%8A%EF%BC%9A%EF%BD%A5%EF%BE%9F%E2%9C%A7%20NOSTALGIC%20HEXD%20NIGHTCORE%20MIX%20VOL.%202%20%5BA3rTqOzGY4U%5D.mp3",
-      "provider": "local",
-      "id": "local_0",
-      "filename": "(ﾉ◕ヮ◕)ﾉ＊：･ﾟ✧ NOSTALGIC HEXD NIGHTCORE MIX VOL. 2 [A3rTqOzGY4U].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\(ﾉ◕ヮ◕)ﾉ＊：･ﾟ✧ NOSTALGIC HEXD NIGHTCORE MIX VOL. 2 [A3rTqOzGY4U].mp3"
-    },
-    {
-      "name": "MAJOR SPZ X KAZ BAŁAGANE X FINKA X MOCNA VIXA [C0y1cTJSex4]",
-      "playedAt": "2025-12-20T21:09:58.561Z",
-      "url": "/music/MAJOR%20SPZ%20X%20KAZ%20BA%C5%81AGANE%20X%20FINKA%20X%20MOCNA%20VIXA%20%5BC0y1cTJSex4%5D.mp3",
-      "provider": "local",
-      "id": "local_256",
-      "filename": "MAJOR SPZ X KAZ BAŁAGANE X FINKA X MOCNA VIXA [C0y1cTJSex4].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\MAJOR SPZ X KAZ BAŁAGANE X FINKA X MOCNA VIXA [C0y1cTJSex4].mp3"
-    },
-    {
-      "name": "Major SPZ - ＂Całą noc＂ ft.Żaluzja  (OFFICIAL VIDEO) [2xB4Lz_NKrw]",
-      "playedAt": "2025-12-20T21:08:49.951Z",
-      "url": "/music/Major%20SPZ%20-%20%EF%BC%82Ca%C5%82%C4%85%20noc%EF%BC%82%20ft.%C5%BBaluzja%20%20(OFFICIAL%20VIDEO)%20%5B2xB4Lz_NKrw%5D.mp3",
-      "provider": "local",
-      "id": "local_255",
-      "filename": "Major SPZ - ＂Całą noc＂ ft.Żaluzja  (OFFICIAL VIDEO) [2xB4Lz_NKrw].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Major SPZ - ＂Całą noc＂ ft.Żaluzja  (OFFICIAL VIDEO) [2xB4Lz_NKrw].mp3"
-    },
-    {
-      "name": "Major SPZ - Weź mnie gość. Natis, Kazior  (Luxons Remix) 2025 [hpGbK7lp-7E]",
-      "playedAt": "2025-12-20T21:06:18.165Z",
-      "url": "/music/Major%20SPZ%20-%20We%C5%BA%20mnie%20go%C5%9B%C4%87.%20Natis%2C%20Kazior%20%20(Luxons%20Remix)%202025%20%5BhpGbK7lp-7E%5D.mp3",
-      "provider": "local",
-      "id": "local_254",
-      "filename": "Major SPZ - Weź mnie gość. Natis, Kazior  (Luxons Remix) 2025 [hpGbK7lp-7E].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Major SPZ - Weź mnie gość. Natis, Kazior  (Luxons Remix) 2025 [hpGbK7lp-7E].mp3"
-    },
-    {
-      "name": "Majki x POLSKI BANDYTA x PUSHER x OSKA030 - SQP (VOX EDIT)ALE TO VIXA [UxdKEYhelGc]",
-      "playedAt": "2025-12-20T21:03:51.956Z",
-      "url": "/music/Majki%20x%20POLSKI%20BANDYTA%20x%20PUSHER%20x%20OSKA030%20-%20SQP%20(VOX%20EDIT)ALE%20TO%20VIXA%20%5BUxdKEYhelGc%5D.mp3",
-      "provider": "local",
-      "id": "local_253",
-      "filename": "Majki x POLSKI BANDYTA x PUSHER x OSKA030 - SQP (VOX EDIT)ALE TO VIXA [UxdKEYhelGc].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Majki x POLSKI BANDYTA x PUSHER x OSKA030 - SQP (VOX EDIT)ALE TO VIXA [UxdKEYhelGc].mp3"
-    },
-    {
-      "name": "Majki x Kumi ft. Major SPZ - Uno Momento [Official Video] [N0cGVaG5i_4]",
-      "playedAt": "2025-12-20T21:01:33.845Z",
-      "url": "/music/Majki%20x%20Kumi%20ft.%20Major%20SPZ%20-%20Uno%20Momento%20%5BOfficial%20Video%5D%20%5BN0cGVaG5i_4%5D.mp3",
-      "provider": "local",
-      "id": "local_252",
-      "filename": "Majki x Kumi ft. Major SPZ - Uno Momento [Official Video] [N0cGVaG5i_4].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Majki x Kumi ft. Major SPZ - Uno Momento [Official Video] [N0cGVaG5i_4].mp3"
-    },
-    {
-      "name": "Majki x Kimik - Halucynogeny (Official Video) [hF67rQCl7AU]",
-      "playedAt": "2025-12-20T20:59:17.010Z",
-      "url": "/music/Majki%20x%20Kimik%20-%20Halucynogeny%20(Official%20Video)%20%5BhF67rQCl7AU%5D.mp3",
-      "provider": "local",
-      "id": "local_251",
-      "filename": "Majki x Kimik - Halucynogeny (Official Video) [hF67rQCl7AU].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Majki x Kimik - Halucynogeny (Official Video) [hF67rQCl7AU].mp3"
-    },
-    {
-      "name": "Majki ft. Mario Dracula - Pasek Gucci (La La La) (Majki Remix) [3hdW-4NZUE0]",
-      "playedAt": "2025-12-20T20:57:12.135Z",
-      "url": "/music/Majki%20ft.%20Mario%20Dracula%20-%20Pasek%20Gucci%20(La%20La%20La)%20(Majki%20Remix)%20%5B3hdW-4NZUE0%5D.mp3",
-      "provider": "local",
-      "id": "local_250",
-      "filename": "Majki ft. Mario Dracula - Pasek Gucci (La La La) (Majki Remix) [3hdW-4NZUE0].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Majki ft. Mario Dracula - Pasek Gucci (La La La) (Majki Remix) [3hdW-4NZUE0].mp3"
-    },
-    {
-      "name": "Majki feat. Wujo - Wjeżdża Seta (VAYTO REMIX) [UwvXYJqnLHY]",
-      "playedAt": "2025-12-20T20:54:52.094Z",
-      "url": "/music/Majki%20feat.%20Wujo%20-%20Wje%C5%BCd%C5%BCa%20Seta%20(VAYTO%20REMIX)%20%5BUwvXYJqnLHY%5D.mp3",
-      "provider": "local",
-      "id": "local_249",
-      "filename": "Majki feat. Wujo - Wjeżdża Seta (VAYTO REMIX) [UwvXYJqnLHY].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Majki feat. Wujo - Wjeżdża Seta (VAYTO REMIX) [UwvXYJqnLHY].mp3"
-    },
-    {
-      "name": "MAJKI - MARIO BROS (PUMPSOUND Remix) [mUdXoSYcyQA]",
-      "playedAt": "2025-12-20T20:52:29.375Z",
-      "url": "/music/MAJKI%20-%20MARIO%20BROS%20(PUMPSOUND%20Remix)%20%5BmUdXoSYcyQA%5D.mp3",
-      "provider": "local",
-      "id": "local_248",
-      "filename": "MAJKI - MARIO BROS (PUMPSOUND Remix) [mUdXoSYcyQA].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\MAJKI - MARIO BROS (PUMPSOUND Remix) [mUdXoSYcyQA].mp3"
-    },
-    {
-      "name": "Aaron Smith - Dancin (KRONO Remix) (Lyrics) [4aC-VGh2INY]",
-      "playedAt": "2025-12-20T20:44:04.510Z",
-      "url": "/music/Aaron%20Smith%20-%20Dancin%20(KRONO%20Remix)%20(Lyrics)%20%5B4aC-VGh2INY%5D.mp3",
-      "provider": "local",
-      "id": "local_1",
-      "filename": "Aaron Smith - Dancin (KRONO Remix) (Lyrics) [4aC-VGh2INY].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\Aaron Smith - Dancin (KRONO Remix) (Lyrics) [4aC-VGh2INY].mp3"
-    },
-    {
-      "name": "GAZ I BENZYNA ALE TO VIXA (LUXONS REMIX) 2023 [Cwz7WrTgQ24]",
-      "playedAt": "2025-12-20T20:05:29.709Z",
-      "url": "/music/GAZ%20I%20BENZYNA%20ALE%20TO%20VIXA%20(LUXONS%20REMIX)%202023%20%5BCwz7WrTgQ24%5D.mp3",
-      "provider": "local",
-      "id": "local_151",
-      "filename": "GAZ I BENZYNA ALE TO VIXA (LUXONS REMIX) 2023 [Cwz7WrTgQ24].mp3",
-      "path": "C:\\Users\\Admin\\Desktop\\lfs-map-radio\\music\\GAZ I BENZYNA ALE TO VIXA (LUXONS REMIX) 2023 [Cwz7WrTgQ24].mp3"
     }
   ],
   "lang": "en"

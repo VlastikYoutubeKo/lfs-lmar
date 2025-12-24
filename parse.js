@@ -1,4 +1,5 @@
-// tc_api_parser.js - SPRÁVNÝ PARSER PRO TC API
+// tc_api_parser.js - TC API PARSER
+// Stáhni TC data a vygeneruj tc_locations.js
 import fs from 'fs';
 
 const TC_API_URL = 'https://world.city-driving.co.uk/api/v2/json/track_so7.json';
@@ -29,12 +30,13 @@ async function parseTC_API() {
             const center = calculateCenter(road.pts);
             let finalName = road.n;
             
+            // Přidat číslo k duplicitním názvům
             if (nameCounters[road.n]) {
-                if (nameCounters[road.n] > 1) {
-                    finalName = `${road.n} ${nameCounters[road.n]}`;
-                }
+                nameCounters[road.n]++;
+                finalName = `${road.n} ${nameCounters[road.n]}`;
+            } else {
+                nameCounters[road.n] = 1;
             }
-            nameCounters[road.n] = (nameCounters[road.n] || 0) + 1;
             
             locations.push({
                 name: finalName,
@@ -55,9 +57,11 @@ async function parseTC_API() {
             
             let finalName = zone.n;
             if (nameCounters[zone.n]) {
-                finalName = `${zone.n} Zone`;
+                nameCounters[zone.n]++;
+                finalName = `${zone.n} ${nameCounters[zone.n]}`;
+            } else {
+                nameCounters[zone.n] = 1;
             }
-            nameCounters[zone.n] = (nameCounters[zone.n] || 0) + 1;
             
             locations.push({
                 name: finalName,
@@ -77,7 +81,8 @@ async function parseTC_API() {
         for (const line of data.busLines) {
             if (line.stp) {
                 for (const stop of line.stp) {
-                    const stopKey = `${stop.n}|${stop.p.x}|${stop.p.y}`;
+                    // OPRAVA: stop.x a stop.y místo stop.p.x a stop.p.y
+                    const stopKey = `${stop.n}|${stop.x}|${stop.y}`;
                     if (!busStops.has(stopKey)) {
                         busStops.set(stopKey, stop);
                     }
@@ -89,14 +94,16 @@ async function parseTC_API() {
     for (const stop of busStops.values()) {
         let finalName = stop.n;
         if (nameCounters[stop.n]) {
-            finalName = `${stop.n} Stop`;
+            nameCounters[stop.n]++;
+            finalName = `${stop.n} ${nameCounters[stop.n]}`;
+        } else {
+            nameCounters[stop.n] = 1;
         }
-        nameCounters[stop.n] = (nameCounters[stop.n] || 0) + 1;
         
         locations.push({
             name: finalName,
-            x: stop.p.x,
-            y: stop.p.y,
+            x: stop.x,  // OPRAVA: stop.x místo stop.p.x
+            y: stop.y,  // OPRAVA: stop.y místo stop.p.y
             icon: "🚏",
             type: "bus_stop",
             track: "SO7"
@@ -111,9 +118,11 @@ async function parseTC_API() {
             
             let finalName = building.n;
             if (nameCounters[building.n]) {
-                finalName = `${building.n} Building`;
+                nameCounters[building.n]++;
+                finalName = `${building.n} ${nameCounters[building.n]}`;
+            } else {
+                nameCounters[building.n] = 1;
             }
-            nameCounters[building.n] = (nameCounters[building.n] || 0) + 1;
             
             locations.push({
                 name: finalName,
@@ -176,9 +185,11 @@ export function parseMissionDestination(text) {
   if (!text) return null;
   text = text.toLowerCase();
 
+  // Hledat "» destination"
   let match = text.match(/»\\s*(.+?)(?:\\s*$)/i);
   if (match) return capitalizeLocation(match[1].trim());
 
+  // Hledat "to/at/on destination"
   match = text.match(/(?:to|at|on)\\s+(.+?)(?:\\s*$|\\s*\\(|\\.|\\s*•)/i);
   if (match) {
     let candidate = match[1].trim();
@@ -186,6 +197,7 @@ export function parseMissionDestination(text) {
     return capitalizeLocation(candidate);
   }
   
+  // Hledat přímé shody
   for (const location in TC_LOCATIONS) {
     if (text.includes(location.toLowerCase())) return location;
   }
@@ -199,16 +211,21 @@ function capitalizeLocation(location) {
 export function getDestinationCoords(destination) {
   if (!destination) return null;
   
+  // Přímá shoda
   if (TC_LOCATIONS[destination]) return TC_LOCATIONS[destination];
   
   const lowerDest = destination.toLowerCase().trim();
+  
+  // Ignorovat generické slova
   const STOP_WORDS = ["way", "road", "street", "lane", "avenue", "drive", "boulevard", "place", "station", "park"];
   if (STOP_WORDS.includes(lowerDest)) return null;
   
+  // Částečná shoda
   for (const [key, value] of Object.entries(TC_LOCATIONS)) {
     if (lowerDest.includes(key.toLowerCase())) return value;
   }
   
+  // Fuzzy match pro delší názvy
   if (lowerDest.length > 3) {
     for (const [key, value] of Object.entries(TC_LOCATIONS)) {
       if (key.toLowerCase().includes(lowerDest)) return value;
