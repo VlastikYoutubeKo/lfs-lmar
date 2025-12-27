@@ -237,7 +237,9 @@ jobs:
             Write-Host "✓ Discord notification sent successfully"
           } catch {
             Write-Host "Error sending Discord notification: $_"
-            Write-Host "Response: $($_.Exception.Response)"
+            if ($_.Exception.Response) {
+              Write-Host "Response: $($_.Exception.Response.StatusCode)"
+            }
           }
 
       # 3. BALÍČKOVÁNÍ (Už nemusí měnit README, to jsme udělali v kroku 1)
