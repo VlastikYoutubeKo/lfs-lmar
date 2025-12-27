@@ -40,7 +40,7 @@ import {
   getPlaylists,
   refreshLocalMusic
 } from './local_music_addon.js';
-
+  await initLocalMusic(); // přidej await
 // === SWITCHES ===
 const FORCE_COP_MODE = process.argv.includes('--cop');   // Forces local player to be COP (sees cops, hides suspects)
 const ENABLE_DEBUG = process.argv.includes('--debug');   // Shows verbose API logs
@@ -499,7 +499,7 @@ function startGuiWatchdog() {
         
         // Refresh Overlay (keep buttons alive)
         if (isOverlayVisible && currentStation) {
-            const isLocal = currentStationConfig?.provider === 'local';
+            const isLocal = currentStationConfig?.provider === 'local' || currentStationConfig?.provider === 'playlist';
             const L = 90; const T = 160; const W = 40;
             const totalHeight = isLocal ? 12 : (currentProgram ? 20 : 14);
             
@@ -585,18 +585,15 @@ async function playRadioStream(url, name, stationConfig = null) {
       
       if (stationConfig?.provider === 'abradia' && stationConfig?.slug) startAbradiaMetadataFetch();
       
-      if (stationConfig?.provider === 'local') {
-          setTimeout(() => {
-              let artist = 'Local Music';
-              let song = name;
-              if (name.includes(' - ')) {
-                  const parts = name.split(' - ');
-                  artist = parts[0];
-                  song = parts.slice(1).join(' - ');
-              }
-              showNowPlayingOverlay({ artist, song, fullTitle: name });
-          }, 500);
-      }
+      if (stationConfig?.provider === 'local' || stationConfig?.provider === 'playlist') {
+            setTimeout(() => {
+        // POUŽIJ METADATA pokud existují
+            let artist = stationConfig.artist || 'Local Music';
+            let song = stationConfig.title || name;
+        
+            showNowPlayingOverlay({ artist, song, fullTitle: `${artist} - ${song}` });
+        }, 500);
+}
       
       broadcastRadioStatus(name, 'playing', { metadata: name });
       updateStatusButtons();
@@ -831,7 +828,7 @@ function createTickerParts(text, maxLength) {
 
 function showNowPlayingOverlay(nowPlaying) {
     isOverlayVisible = true;
-    const isLocal = currentStationConfig?.provider === 'local';
+    const isLocal = currentStationConfig?.provider === 'local' || currentStationConfig?.provider === 'playlist';
     
     const W = 40; const L = 90; const T = 160;
     const totalHeight = isLocal ? 12 : (currentProgram ? 20 : 14);
@@ -843,9 +840,21 @@ function showNowPlayingOverlay(nowPlaying) {
     let fullTitle = artist && song ? `${artist} - ${song}` : (song || artist);
     
     if (isLocal) {
-        // NOVÝ LAYOUT: Celý název v headeru (zelený)
+        // LOCAL MUSIC / PLAYLIST LAYOUT
+        
+        // Pro playlist: zobraz název playlistu + název skladby
+        if (currentStationConfig?.provider === 'playlist') {
+            const track = currentPlaylist[currentTrackIndex];
+            const playlistName = currentStationConfig.playlistName || "Playlist";
+    
+            // POUŽIJ METADATA
+            const artist = track?.artist || '';
+            const title = track?.title || song;
+            fullTitle = artist ? `${playlistName}: ${artist} - ${title}` : `${playlistName}: ${title}`;
+        }
+        
         overlayArtistParts = createTickerParts(fullTitle, 30);
-        overlaySongParts = []; // Nepoužíváme
+        overlaySongParts = [];
         
         if (overlayTickerTimer) {
             clearInterval(overlayTickerTimer);
@@ -867,18 +876,19 @@ function showNowPlayingOverlay(nowPlaying) {
             }, 3000);
         }
         
-        // Track info
-        const trackInfo = `^7${currentTrackIndex + 1}^8/^7${currentPlaylist.length}`;
+        // Track info - zobraz index z ORIGINÁLNÍHO playlistu
+        const displayIndex = getCurrentTrackOriginalIndex();
+        const trackInfo = `^7${displayIndex}^8/^7${originalPlaylist.length || currentPlaylist.length}`;
         sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, W, 3, trackInfo, ButtonStyle.ISB_DARK);
         
-        // CONTROLS místo song textu
+        // CONTROLS
         sendBtn(MY_UCID, 227, L+1, T+8, 8, 4, '^3|<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         sendBtn(MY_UCID, 226, L+10, T+8, 10, 4, isPaused ? '^2▶' : '^3||', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         sendBtn(MY_UCID, 228, L+21, T+8, 8, 4, '^3>|', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         sendBtn(MY_UCID, 229, L+30, T+8, 9, 4, isShuffled ? '^2🔀' : '^8🔀', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
     }
     else {
-        // Normální overlay pro streamy
+        // Normální overlay pro streamy (nezměněno)
         sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, t('OVERLAY_HEADER'), ButtonStyle.ISB_DARK);
         sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         
@@ -1063,7 +1073,7 @@ inSim.on('connect', () => {
   playerStates.clear();
   activeChases.clear();
   
-  initLocalMusic();
+  initLocalMusic(); // přidej await
   
   playerStates.set(MY_UCID, { state: 'icon', searchResults: [], page: 0 });
   renderUI(MY_UCID, 'icon');
@@ -1321,9 +1331,12 @@ inSim.on(PacketType.ISP_BTC, async (p) => {
                 playRadioStream(station.path, station.name, { provider: 'local', ...station });
             }
             else if (station.tracks && station.tracks.length > 0) {
+            
+                setPlaylist(station.tracks, 0);
+
                 const firstTrack = station.tracks[0];
                 const url = firstTrack.url || firstTrack.path;
-                playRadioStream(url, `${station.name} - ${firstTrack.name}`, { provider: 'playlist', ...station });
+                playRadioStream(url, `${station.name} - ${firstTrack.name}`, { provider: 'playlist', playlistName: station.name, ...station });
             }
             else
             if (station.provider === 'abradia' || station.slug) {

@@ -8,7 +8,14 @@ async function parseTC_API() {
     console.log('🔄 Downloading TC API data...');
     
     const response = await fetch(TC_API_URL);
-    const data = await response.json();
+    const textData = await response.text();
+    
+    // Nahradit Infinity hodnotami, které jsou validní JSON
+    const cleanedData = textData
+        .replace(/:\s*Infinity/g, ': 999999')
+        .replace(/:\s*-Infinity/g, ': -999999');
+    
+    const data = JSON.parse(cleanedData);
     
     console.log('📊 Raw API data:');
     console.log(`  Roads (rds): ${data.rds?.length || 0}`);
@@ -81,7 +88,6 @@ async function parseTC_API() {
         for (const line of data.busLines) {
             if (line.stp) {
                 for (const stop of line.stp) {
-                    // OPRAVA: stop.x a stop.y místo stop.p.x a stop.p.y
                     const stopKey = `${stop.n}|${stop.x}|${stop.y}`;
                     if (!busStops.has(stopKey)) {
                         busStops.set(stopKey, stop);
@@ -102,8 +108,8 @@ async function parseTC_API() {
         
         locations.push({
             name: finalName,
-            x: stop.x,  // OPRAVA: stop.x místo stop.p.x
-            y: stop.y,  // OPRAVA: stop.y místo stop.p.y
+            x: stop.x,
+            y: stop.y,
             icon: "🚏",
             type: "bus_stop",
             track: "SO7"

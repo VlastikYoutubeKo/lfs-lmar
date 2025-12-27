@@ -6,6 +6,8 @@ import { dirname, join } from 'path';
 import fs from 'fs';
 import http from 'http';
 import express from 'express';
+// Přidej import na začátek
+import { parseFile } from 'music-metadata';
 
 // Konfigurace
 const __filename = fileURLToPath(import.meta.url);
@@ -14,11 +16,34 @@ const LOCAL_MUSIC_FOLDER = join(__dirname, 'music');
 const LOCAL_PLAYLISTS_FOLDER = join(__dirname, 'playlists');
 const HTTP_SERVER_PORT = 3002;
 
+// Přidej na začátek souboru (po importech)
+let currentPlaylist = null;
+let currentTrackIndex = 0;
+let isPlaylistPlaying = false;
+
 let localMusicFiles = [];
 let localPlaylists = [];
 
 // === SCAN LOKALNI HUDBY ===
-export function scanLocalMusic() {
+
+// === NOVÁ FUNKCE: NAČTI METADATA ===
+async function extractMetadata(filePath) {
+  try {
+    const metadata = await parseFile(filePath);
+    return {
+      title: metadata.common.title || null,
+      artist: metadata.common.artist || null,
+      album: metadata.common.album || null,
+      duration: metadata.format.duration || null, // v sekundách
+      year: metadata.common.year || null
+    };
+  } catch (e) {
+    if (ENABLE_DEBUG) console.warn(`[Metadata] Chyba čtení: ${filePath}`);
+    return null;
+  }
+}
+
+export async function scanLocalMusic() {
   try {
     if (!fs.existsSync(LOCAL_MUSIC_FOLDER)) {
       fs.mkdirSync(LOCAL_MUSIC_FOLDER, { recursive: true });
@@ -28,23 +53,34 @@ export function scanLocalMusic() {
 
     const files = fs.readdirSync(LOCAL_MUSIC_FOLDER);
     const musicFiles = files.filter(file => {
-      const ext = join(file).toLowerCase();
+      const ext = file.toLowerCase();
       return ext.endsWith('.mp3') || ext.endsWith('.mp4') || ext.endsWith('.m4a') || 
              ext.endsWith('.wav') || ext.endsWith('.ogg') || ext.endsWith('.flac');
     });
 
-    localMusicFiles = musicFiles.map((file, index) => {
+    // PARALELNÍ NAČÍTÁNÍ METADAT
+    const promises = musicFiles.map(async (file, index) => {
       const nameWithoutExt = file.substring(0, file.lastIndexOf('.')) || file;
+      const fullPath = join(LOCAL_MUSIC_FOLDER, file);
+      
+      const metadata = await extractMetadata(fullPath);
+      
       return {
         id: `local_${index}`,
         filename: file,
-        name: nameWithoutExt, // Jen nazev bez pripony
-        path: join(LOCAL_MUSIC_FOLDER, file),
-        url: `/music/${encodeURIComponent(file)}`
+        name: nameWithoutExt,
+        path: fullPath,
+        url: `/music/${encodeURIComponent(file)}`,
+        // METADATA:
+        title: metadata?.title || nameWithoutExt,
+        artist: metadata?.artist || 'Unknown Artist',
+        album: metadata?.album || null,
+        duration: metadata?.duration || null
       };
     });
 
-    console.log(`🎵 Nacteno ${localMusicFiles.length} lokalnich skladeb`);
+    localMusicFiles = await Promise.all(promises);
+    console.log(`🎵 Nacteno ${localMusicFiles.length} lokalnich skladeb (s metadaty)`);
     return localMusicFiles;
   } catch (e) {
     console.error('❌ Chyba scan lokalni hudby:', e.message);
@@ -53,7 +89,7 @@ export function scanLocalMusic() {
 }
 
 // === SCAN M3U PLAYLISTU ===
-export function scanPlaylists() {
+export async function scanPlaylists() {
   try {
     if (!fs.existsSync(LOCAL_PLAYLISTS_FOLDER)) {
       fs.mkdirSync(LOCAL_PLAYLISTS_FOLDER, { recursive: true });
@@ -64,10 +100,10 @@ export function scanPlaylists() {
     const files = fs.readdirSync(LOCAL_PLAYLISTS_FOLDER);
     const m3uFiles = files.filter(f => f.toLowerCase().endsWith('.m3u') || f.toLowerCase().endsWith('.m3u8'));
 
-    localPlaylists = m3uFiles.map((file, index) => {
+    const promises = m3uFiles.map(async (file, index) => {
       const nameWithoutExt = file.substring(0, file.lastIndexOf('.')) || file;
       const fullPath = join(LOCAL_PLAYLISTS_FOLDER, file);
-      const tracks = parseM3U(fullPath);
+      const tracks = await parseM3U(fullPath); // ASYNC!
       
       return {
         id: `playlist_${index}`,
@@ -78,6 +114,7 @@ export function scanPlaylists() {
       };
     });
 
+    localPlaylists = await Promise.all(promises);
     console.log(`📋 Nacteno ${localPlaylists.length} playlistu`);
     return localPlaylists;
   } catch (e) {
@@ -87,13 +124,13 @@ export function scanPlaylists() {
 }
 
 // === PARSE M3U SOUBORU ===
-function parseM3U(filePath) {
+async function parseM3U(filePath) {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    const playlistDir = dirname(filePath); // Složka kde je playlist
+    const playlistDir = dirname(filePath);
     
-    return lines.map((line, index) => {
+    const promises = lines.map(async (line, index) => {
       // Pokud je to URL
       if (line.startsWith('http://') || line.startsWith('https://')) {
         return {
@@ -104,11 +141,9 @@ function parseM3U(filePath) {
         };
       }
       
-      // Pokud je to absolutní cesta (Windows: C:\... nebo Linux: /...)
       const isAbsolutePath = line.match(/^([A-Z]:\\|\/)/i);
       const fullPath = isAbsolutePath ? line : join(playlistDir, line);
       
-      // Zkontroluj jestli soubor existuje
       if (!fs.existsSync(fullPath)) {
         console.warn(`⚠️ Soubor nenalezen: ${fullPath}`);
         return null;
@@ -117,18 +152,30 @@ function parseM3U(filePath) {
       const fileName = fullPath.split(/[/\\]/).pop();
       const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
       
+      // NAČTI METADATA
+      const metadata = await extractMetadata(fullPath);
+      
       return {
         id: `m3u_${index}`,
         name: nameWithoutExt,
-        path: fullPath, // Plná cesta k souboru
-        type: 'file'
+        path: fullPath,
+        type: 'file',
+        // METADATA:
+        title: metadata?.title || nameWithoutExt,
+        artist: metadata?.artist || 'Unknown Artist',
+        album: metadata?.album || null,
+        duration: metadata?.duration || null
       };
-    }).filter(item => item !== null); // Odstraň neexistující soubory
+    });
+    
+    const results = await Promise.all(promises);
+    return results.filter(item => item !== null);
   } catch (e) {
     console.error('❌ Chyba parsovani M3U:', e.message);
     return [];
   }
 }
+
 
 // === HTTP SERVER PRO STREAMING ===
 export function startMusicServer() {
@@ -155,6 +202,30 @@ export function startMusicServer() {
   app.get('/api/playlists', (req, res) => {
     res.json(localPlaylists);
   });
+
+  // Playlist player endpointy
+  app.get('/api/playlist/current', (req, res) => {
+    res.json(getCurrentPlaylistInfo());
+  });
+  
+  app.post('/api/playlist/select/:playlistId', (req, res) => {
+    const result = setCurrentPlaylist(req.params.playlistId);
+    res.json(result);
+  });
+  
+  app.post('/api/playlist/next', (req, res) => {
+    const result = playlistNext();
+    res.json(result);
+  });
+  
+  app.post('/api/playlist/previous', (req, res) => {
+    const result = playlistPrevious();
+  });
+  
+  app.post('/api/playlist/toggle', (req, res) => {
+    const result = playlistTogglePlay();
+    res.json(result);
+  });
   
   app.listen(HTTP_SERVER_PORT, () => {
     console.log(`🌐 HTTP server bezi na http://localhost:${HTTP_SERVER_PORT}`);
@@ -164,9 +235,92 @@ export function startMusicServer() {
 }
 
 // === EXPORT ===
-export function initLocalMusic() {
-  scanLocalMusic();
-  scanPlaylists();
+
+// === PLAYLIST PLAYER LOGIC ===
+export function setCurrentPlaylist(playlistId) {
+  const playlist = localPlaylists.find(p => p.id === playlistId);
+  if (!playlist) {
+    return { success: false, error: 'Playlist nenalezen' };
+  }
+  
+  currentPlaylist = playlist;
+  currentTrackIndex = 0;
+  isPlaylistPlaying = true;
+  
+  return {
+    success: true,
+    playlist: playlist.name,
+    track: currentPlaylist.tracks[0]
+  };
+}
+
+export function playlistNext() {
+  if (!currentPlaylist || !currentPlaylist.tracks.length) {
+    return { success: false, error: 'Žádný playlist nehraje' };
+  }
+  
+  currentTrackIndex++;
+  if (currentTrackIndex >= currentPlaylist.tracks.length) {
+    currentTrackIndex = 0; // Loop
+  }
+  
+  return {
+    success: true,
+    currentIndex: currentTrackIndex,
+    track: currentPlaylist.tracks[currentTrackIndex]
+  };
+}
+
+export function playlistPrevious() {
+  if (!currentPlaylist || !currentPlaylist.tracks.length) {
+    return { success: false, error: 'Žádný playlist nehraje' };
+  }
+  
+  currentTrackIndex--;
+  if (currentTrackIndex < 0) {
+    currentTrackIndex = currentPlaylist.tracks.length - 1;
+  }
+  
+  return {
+    success: true,
+    currentIndex: currentTrackIndex,
+    track: currentPlaylist.tracks[currentTrackIndex]
+  };
+}
+
+export function playlistTogglePlay() {
+  if (!currentPlaylist) {
+    return { success: false, error: 'Žádný playlist nehraje' };
+  }
+  
+  isPlaylistPlaying = !isPlaylistPlaying;
+  return {
+    success: true,
+    playing: isPlaylistPlaying
+  };
+}
+
+export function getCurrentPlaylistInfo() {
+  if (!currentPlaylist) {
+    return {
+      playing: false,
+      playlist: null,
+      track: null
+    };
+  }
+  
+  return {
+    playing: isPlaylistPlaying,
+    playlist: currentPlaylist.name,
+    playlistId: currentPlaylist.id,
+    currentIndex: currentTrackIndex,
+    totalTracks: currentPlaylist.tracks.length,
+    track: currentPlaylist.tracks[currentTrackIndex]
+  };
+}
+export async function initLocalMusic() {
+  await scanLocalMusic();
+  await scanPlaylists();
   startMusicServer();
 }
 
@@ -178,7 +332,7 @@ export function getPlaylists() {
   return localPlaylists;
 }
 
-export function refreshLocalMusic() {
-  scanLocalMusic();
-  scanPlaylists();
+export async function refreshLocalMusic() {
+  await scanLocalMusic();
+  await scanPlaylists();
 }
