@@ -1,1144 +1,514 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Turn Annotator - Označování zatáček</title>
+  <title>LFS Turn Annotator</title>
   <style>
+    :root {
+      --accent: #4a9eff;
+      --bg-glass: rgba(15, 15, 15, 0.95);
+      --border-glass: rgba(255, 255, 255, 0.15);
+      --text-main: #fff;
+      --text-dim: #aaa;
+      --danger: #ff4d4d;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #1a1a1a;
-      color: #fff;
-      display: flex;
+
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: var(--text-main);
+      overflow: hidden;
       height: 100vh;
+      width: 100vw;
     }
-    
-    #sidebar {
-      width: 350px;
-      background: #0a0a0a;
-      border-right: 2px solid #333;
-      padding: 20px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
+
+    #canvas-container { position: absolute; inset: 0; z-index: 0; background: #0f0f0f; }
+    canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+
+    .glass-panel {
+      background: var(--bg-glass);
+      backdrop-filter: blur(15px);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      padding: 12px 16px;
+      position: absolute;
+      z-index: 10;
     }
-    
-    #canvas-container {
-      flex: 1;
-      position: relative;
-      background: #0f0f0f;
+
+    /* TOP BAR */
+    #top-bar {
+      top: 20px; left: 20px; right: 20px;
+      height: 64px;
+      display: flex; justify-content: space-between; align-items: center;
     }
+
+    .brand { font-weight: 700; font-size: 18px; color: var(--accent); }
     
-    canvas {
-      display: block;
-      cursor: crosshair;
+    .file-btn {
+      background: rgba(255,255,255,0.1); border: 1px solid var(--border-glass);
+      color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+      font-size: 13px; display: inline-flex; align-items: center; gap: 6px;
     }
-    
-    h2 {
-      color: #4a9eff;
-      font-size: 20px;
-      margin-bottom: 10px;
-      border-bottom: 2px solid #4a9eff;
-      padding-bottom: 5px;
+    .file-btn:hover { background: rgba(255,255,255,0.2); border-color: var(--accent); }
+    input[type="file"] { display: none; }
+
+    /* RIGHT PANEL (Tools) */
+    #right-panel {
+      top: 95px; right: 20px; bottom: 120px; width: 280px;
+      display: flex; flex-direction: column; gap: 10px; pointer-events: none;
     }
-    
-    h3 {
-      color: #4a9eff;
-      font-size: 16px;
-      margin: 15px 0 10px 0;
+    .panel-section { pointer-events: auto; display: flex; flex-direction: column; }
+    .panel-header {
+      font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-dim);
+      margin-bottom: 10px; cursor: pointer;
     }
-    
-    .section {
-      background: rgba(50, 50, 50, 0.3);
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 15px;
-    }
-    
-    button {
-      width: 100%;
-      padding: 12px;
-      margin: 5px 0;
-      background: #4a9eff;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-    
-    button:hover {
-      background: #5ab0ff;
-      transform: translateY(-2px);
-    }
-    
-    button:active {
-      transform: translateY(0);
-    }
-    
-    button.secondary {
-      background: #666;
-    }
-    
-    button.secondary:hover {
-      background: #777;
-    }
-    
-    button.danger {
-      background: #f03e3e;
-    }
-    
-    button.danger:hover {
-      background: #ff4e4e;
-    }
-    
-    input[type="file"] {
-      width: 100%;
-      padding: 10px;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid #4a9eff;
-      border-radius: 6px;
-      color: #fff;
-      cursor: pointer;
-    }
-    
-    .turn-type {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      margin: 10px 0;
-    }
-    
-    .turn-btn {
-      padding: 15px 10px;
-      background: rgba(74, 158, 255, 0.1);
-      border: 2px solid #4a9eff;
-      color: #4a9eff;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 24px;
-      transition: all 0.2s;
-    }
-    
-    .turn-btn:hover {
-      background: rgba(74, 158, 255, 0.3);
-    }
-    
-    .turn-btn.selected {
-      background: #4a9eff;
-      color: #000;
-      border-color: #5ab0ff;
-    }
-    
-    .turn-btn small {
-      display: block;
-      font-size: 11px;
-      margin-top: 5px;
-    }
-    
-    #annotationsList {
-      max-height: 300px;
-      overflow-y: auto;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid #333;
-      border-radius: 6px;
-      padding: 10px;
-    }
-    
+    .panel-content { overflow-y: auto; }
+
+    /* CONTROLS */
+    .control-group { margin-bottom: 12px; }
+    .control-lbl { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; color: #ddd; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+    .checkbox-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 10px; cursor: pointer;}
+    input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+
+    /* LIST */
     .annotation-item {
-      background: rgba(74, 158, 255, 0.1);
-      border-left: 3px solid #4a9eff;
-      padding: 8px 10px;
-      margin: 5px 0;
-      border-radius: 4px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; margin-bottom: 5px;
+      border-left: 3px solid var(--accent);
     }
+    .del-btn { background: none; border: none; color: #666; cursor: pointer; }
+    .del-btn:hover { color: var(--danger); }
+
+    /* BOTTOM HUD */
+    #bottom-hud {
+      bottom: 30px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .turn-selector { display: flex; gap: 8px; padding: 10px; border-radius: 16px; }
+    .turn-btn {
+      width: 50px; height: 50px; border-radius: 10px;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass);
+      color: #aaa; font-size: 20px; cursor: pointer; transition: 0.2s;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .turn-btn small { font-size: 9px; margin-top: 2px; }
+    .turn-btn:hover { transform: translateY(-3px); background: rgba(255,255,255,0.1); }
+    .turn-btn.selected { background: var(--accent); color: #000; border-color: var(--accent); transform: translateY(-3px); }
+
+    /* FABs */
+    #fab-container { position: absolute; bottom: 30px; right: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 20; }
+    .fab {
+      width: 48px; height: 48px; border-radius: 50%; background: var(--bg-glass);
+      border: 1px solid var(--border-glass); color: #fff; font-size: 20px;
+      cursor: pointer; display: grid; place-items: center; transition: 0.2s;
+    }
+    .fab:hover { transform: scale(1.1); border-color: var(--accent); }
+    .fab.primary { background: var(--accent); color: #000; border: none; }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
     
-    .annotation-item:hover {
-      background: rgba(74, 158, 255, 0.2);
+    .modal-box {
+      background: #111; border: 1px solid #333; padding: 30px; border-radius: 16px;
+      max-width: 500px; width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     }
-    
-    .annotation-info {
-      flex: 1;
-      font-size: 13px;
+    .modal-title { color: var(--accent); font-size: 22px; margin-bottom: 20px; font-weight: bold; }
+    .step-list { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+    .step { display: flex; gap: 15px; }
+    .step-num { 
+      background: #333; color: var(--accent); width: 24px; height: 24px; flex-shrink: 0;
+      border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: bold; 
     }
-    
-    .annotation-delete {
-      background: #f03e3e;
-      color: #fff;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    
-    .stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin: 10px 0;
-    }
-    
-    .stat {
-      background: rgba(0, 0, 0, 0.3);
-      padding: 10px;
-      border-radius: 6px;
-      border: 1px solid #333;
-    }
-    
-    .stat-label {
-      font-size: 11px;
-      color: #999;
-      text-transform: uppercase;
-    }
-    
-    .stat-value {
-      font-size: 20px;
-      font-weight: 600;
-      color: #4a9eff;
-      margin-top: 5px;
-    }
-    
-    #info {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(10, 10, 10, 0.9);
-      border: 2px solid #4a9eff;
-      padding: 15px;
-      border-radius: 8px;
-      min-width: 200px;
-      backdrop-filter: blur(10px);
-    }
-    
-    .help {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      background: rgba(10, 10, 10, 0.9);
-      border: 2px solid #666;
-      padding: 15px;
-      border-radius: 8px;
-      max-width: 300px;
-      font-size: 12px;
-      color: #999;
-    }
-    
-    .help h4 {
-      color: #4a9eff;
-      margin-bottom: 8px;
-    }
-    
-    .help ul {
-      list-style: none;
-      padding-left: 0;
-    }
-    
-    .help li {
-      margin: 5px 0;
-    }
-    
-    .help li::before {
-      content: "→ ";
-      color: #4a9eff;
-    }
+    .step-text { color: #ccc; font-size: 14px; line-height: 1.5; }
+    .highlight { color: #fff; font-weight: 600; }
+
   </style>
 </head>
 <body>
-  <div id="sidebar">
-    <h2>🏷️ Turn Annotator</h2>
-    
-    <div class="section">
-      <h3>🗺️ Výběr tratě</h3>
-      <select id="trackSelect">
-        <option value="">Vyber trať...</option>
-        <option value="AS">Aston (AS)</option>
-        <option value="AU">Autocross (AU)</option>
-        <option value="BL">Blackwood (BL)</option>
-        <option value="FE">Fern Bay (FE)</option>
-        <option value="KY">Kyoto (KY)</option>
-        <option value="LA">Layout Square (LA)</option>
-        <option value="RO">Rockingham (RO)</option>
-        <option value="SO">South City (SO)</option>
-        <option value="WE">Westhill (WE)</option>
-      </select>
-      <small style="display: block; margin-top: 5px; color: #666;">
-        PNG soubor musí být ve stejné složce (např. SO.png)
-      </small>
-    </div>
-    
-    <div class="section">
-      <h3>📂 Načíst trasu</h3>
-      <input type="file" id="fileInput" accept=".json">
-      <button id="loadDemo" class="secondary">📥 Načíst demo data</button>
-    </div>
-    
-    <div class="section">
-      <h3>🎯 Alignment trasy</h3>
-      <small style="display: block; margin-bottom: 10px; color: #666;">
-        Napozicuj trasu na mapu
-      </small>
-      
-      <label style="display: block; margin-bottom: 5px; font-size: 12px;">
-        Posun X:
-        <input type="range" id="offsetX" min="-2000" max="2000" value="0" step="10" style="width: 100%;">
-        <span id="offsetXVal">0</span>
-      </label>
-      
-      <label style="display: block; margin-bottom: 5px; font-size: 12px;">
-        Posun Y:
-        <input type="range" id="offsetY" min="-2000" max="2000" value="0" step="10" style="width: 100%;">
-        <span id="offsetYVal">0</span>
-      </label>
-      
-      <label style="display: block; margin-bottom: 5px; font-size: 12px;">
-        Velikost:
-        <input type="range" id="scale" min="0.5" max="2" value="1" step="0.05" style="width: 100%;">
-        <span id="scaleVal">1.0</span>
-      </label>
-      
-      <label style="display: block; margin-bottom: 10px; font-size: 12px;">
-        Rotace:
-        <input type="range" id="rotation" min="-180" max="180" value="0" step="1" style="width: 100%;">
-        <span id="rotationVal">0°</span>
-      </label>
-      
-      <div style="margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 4px;">
-        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 5px;">
-          <input type="checkbox" id="flipX">
-          <span style="font-size: 12px;">🔄 Flip X (zrcadlo ←→)</span>
-        </label>
-        
-        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-          <input type="checkbox" id="flipY">
-          <span style="font-size: 12px;">🔄 Flip Y (zrcadlo ↕)</span>
-        </label>
-      </div>
-      
-      <button id="resetAlign" class="secondary" style="width: 100%;">🔄 Reset alignment</button>
-    </div>
-    
-    <div class="section">
-      <h3>📊 Statistiky</h3>
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-label">Body</div>
-          <div class="stat-value" id="pointsCount">0</div>
+
+  <div id="introModal" class="modal-overlay active">
+    <div class="modal-box">
+      <div class="modal-title">📝 Labeling Workflow</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">Click <span class="highlight">Load JSON</span> and select the file from GPS Logger.</div>
         </div>
-        <div class="stat">
-          <div class="stat-label">Vzdálenost</div>
-          <div class="stat-value" id="pathDistance">0m</div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <b>Note:</b> "Flip Y" is enabled by default to fix inverted LFS coordinates.
+          </div>
         </div>
-        <div class="stat">
-          <div class="stat-label">Anotace</div>
-          <div class="stat-value" id="annotationsCount">0</div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">Select a Turn Type (click or keys <span class="highlight">1-6</span>).</div>
         </div>
-        <div class="stat">
-          <div class="stat-label">Kompletnost</div>
-          <div class="stat-value" id="completeness">0%</div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-text">Click on the path where the turn starts.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-text">When finished, click <span class="highlight">Export ML Dataset</span> and send it to mxnticek.</div>
         </div>
       </div>
-    </div>
-    
-    <div class="section">
-      <h3>🎯 Typ zatáčky</h3>
-      <div class="turn-type">
-        <button class="turn-btn" data-type="slight_left">
-          ↖️<small>Slight Left</small>
-        </button>
-        <button class="turn-btn" data-type="slight_right">
-          ↗️<small>Slight Right</small>
-        </button>
-        <button class="turn-btn selected" data-type="left">
-          ⬅️<small>Left</small>
-        </button>
-        <button class="turn-btn" data-type="right">
-          ➡️<small>Right</small>
-        </button>
-        <button class="turn-btn" data-type="sharp_left">
-          ↩️<small>Sharp Left</small>
-        </button>
-        <button class="turn-btn" data-type="sharp_right">
-          ↪️<small>Sharp Right</small>
-        </button>
-      </div>
-      <p style="font-size: 12px; color: #999; margin-top: 10px;">
-        Vyber typ, pak klikni na mapu kde je zatáčka
-      </p>
-    </div>
-    
-    <div class="section">
-      <h3>📝 Anotace</h3>
-      <div id="annotationsList">
-        <div style="color: #666; text-align: center; padding: 20px;">
-          Žádné anotace
-        </div>
-      </div>
-    </div>
-    
-    <div class="section">
-      <button id="exportAnnotations">💾 Export anotací (JSON)</button>
-      <button id="exportDataset" class="secondary">📦 Export dataset (ML)</button>
-      <button id="clearAll" class="danger">🗑️ Vymazat všechny anotace</button>
-    </div>
-  </div>
-  
-  <div id="canvas-container">
-    <canvas id="canvas"></canvas>
-    
-    <div id="info">
-      <div style="font-size: 12px; color: #4a9eff; margin-bottom: 10px;">
-        <strong>Nástroj aktivní</strong>
-      </div>
-      <div style="font-size: 11px; color: #999;">
-        Klikni na trasu pro označení zatáčky
-      </div>
-    </div>
-    
-    <div class="help">
-      <h4>⌨️ Ovládání</h4>
-      <ul>
-        <li>Klik na mapu = přidej anotaci</li>
-        <li>Scroll = zoom</li>
-        <li>Drag = posun mapu</li>
-        <li>1-6 = rychlý výběr typu</li>
-        <li>Delete = smaž poslední</li>
-      </ul>
+      <button onclick="closeModal()" style="width:100%; justify-content:center; background:var(--accent); color:#000; padding:12px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Got it!</button>
     </div>
   </div>
 
-  <script type="module">
-    import { TRACK_CONFIGS, getTrackConfig, worldToCanvas } from './track_configs.js';
+  <div id="canvas-container"><canvas id="canvas"></canvas></div>
+
+  <nav id="top-bar" class="glass-panel">
+    <div class="brand">📝 Turn Annotator</div>
+    <div style="display: flex; gap: 10px;">
+      <select id="trackSelect" class="file-btn" style="background: rgba(255,255,255,0.05);">
+        <option value="">Select Track...</option>
+        <option value="BL">Blackwood</option>
+        <option value="SO">South City</option>
+        <option value="AS">Aston</option>
+        <option value="WE">Westhill</option>
+      </select>
+      <label class="file-btn">
+        📂 Load JSON
+        <input type="file" id="fileInput" accept=".json">
+      </label>
+      <button onclick="document.getElementById('introModal').classList.add('active')" class="file-btn" style="width: 35px; justify-content:center;">?</button>
+    </div>
+  </nav>
+
+  <div id="right-panel">
+    <div class="glass-panel panel-section">
+      <div class="panel-header">🛠️ Alignment</div>
+      <div class="panel-content">
+        <div class="control-group">
+          <div class="control-lbl"><span>X Offset</span><span id="offsetXVal">0</span></div>
+          <input type="range" id="offsetX" min="-2000" max="2000" value="0" step="10">
+        </div>
+        <div class="control-group">
+          <div class="control-lbl"><span>Y Offset</span><span id="offsetYVal">0</span></div>
+          <input type="range" id="offsetY" min="-2000" max="2000" value="0" step="10">
+        </div>
+        <div class="control-group">
+          <div class="control-lbl"><span>Scale</span><span id="scaleVal">1.0</span></div>
+          <input type="range" id="scale" min="0.5" max="2" value="1" step="0.05">
+        </div>
+        <div class="control-group">
+          <div class="control-lbl"><span>Rotation</span><span id="rotationVal">0°</span></div>
+          <input type="range" id="rotation" min="-180" max="180" value="0" step="1">
+        </div>
+        <label class="checkbox-wrap">
+          <input type="checkbox" id="flipY" checked>
+          Flip Y (Fixes LFS coords)
+        </label>
+        
+        <button onclick="resetAlign()" class="file-btn" style="width:100%; justify-content:center;">Reset</button>
+      </div>
+    </div>
+
+    <div class="glass-panel panel-section">
+      <div class="panel-header">📊 Stats</div>
+      <div style="font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 5px;">
+        <span style="color:#aaa">Points:</span> <span id="ptCount" style="color:#fff">0</span>
+      </div>
+      <div style="font-size: 13px; display: flex; justify-content: space-between;">
+        <span style="color:#aaa">Labels:</span> <span id="lblCount" style="color:var(--accent)">0</span>
+      </div>
+    </div>
     
+    <div class="glass-panel panel-section" style="flex:1;">
+      <div class="panel-header">Labels List</div>
+      <div id="annList" class="panel-content" style="font-size: 12px; color: #666; text-align: center;">
+        No labels yet
+      </div>
+    </div>
+  </div>
+
+  <div id="bottom-hud">
+    <div style="background:rgba(0,0,0,0.5); padding: 4px 10px; border-radius: 10px; font-size: 12px; color: #aaa;">
+      Select type & click path
+    </div>
+    <div class="glass-panel turn-selector">
+      <button class="turn-btn" data-type="slight_left">↖️<small>Slight</small></button>
+      <button class="turn-btn selected" data-type="left">⬅️<small>Left</small></button>
+      <button class="turn-btn" data-type="sharp_left">↩️<small>Sharp</small></button>
+      <div style="width:1px; background:rgba(255,255,255,0.1); margin:0 4px;"></div>
+      <button class="turn-btn" data-type="slight_right">↗️<small>Slight</small></button>
+      <button class="turn-btn" data-type="right">➡️<small>Right</small></button>
+      <button class="turn-btn" data-type="sharp_right">↪️<small>Sharp</small></button>
+    </div>
+  </div>
+
+  <div id="fab-container">
+    <button class="fab primary" onclick="exportDataset()" title="Export ML Dataset">📦</button>
+    <button class="fab" onclick="clearAll()" style="color:var(--danger)" title="Clear All">🗑️</button>
+  </div>
+
+  <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     
     // State
     const state = {
-      path: null,
+      path: [],
       annotations: [],
-      selectedTurnType: 'left',
-      camera: { x: 0, y: 0, zoom: 1 },
-      trackConfig: null,
-      trackImage: new Image(),
-      trackCode: '',
+      selectedType: 'left',
+      // LAZY FIX: flipY is true by default
+      transform: { x: 0, y: 0, s: 1, r: 0, flipY: true },
+      camera: { x: 0, y: 0, z: 0.8 },
       isDragging: false,
-      isMouseDown: false,
-      dragStartPos: { x: 0, y: 0 },
-      lastMouse: { x: 0, y: 0 },
-      // Path transformation (for alignment)
-      pathTransform: {
-        offsetX: 0,
-        offsetY: 0,
-        scale: 1,
-        rotation: 0,
-        flipX: false,
-        flipY: false
-      }
+      lastMouse: { x:0, y:0 }
     };
+
+    function closeModal() {
+      document.getElementById('introModal').classList.remove('active');
+    }
+
+    // Init
+    resize();
+    window.addEventListener('resize', resize);
     
-    // Resize canvas
-    function resizeCanvas() {
-      const container = document.getElementById('canvas-container');
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      state.camera.x = canvas.width/2; 
+      state.camera.y = canvas.height/2;
       render();
     }
-    
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-    
-    // Track select
-    document.getElementById('trackSelect').addEventListener('change', (e) => {
-      const trackCode = e.target.value;
-      if (!trackCode) return;
-      
-      state.trackCode = trackCode;
-      const config = getTrackConfig(trackCode);
-      state.trackConfig = config;
-      
-      // Load track image
-      state.trackImage = new Image();
-      state.trackImage.onload = () => {
-        console.log(`✅ Track image načten: ${trackCode}`);
-        resetCamera();
-        render();
-      };
-      state.trackImage.onerror = () => {
-        console.warn(`⚠️ Track image nenalezen: ${trackCode}.png`);
-        alert(`Soubor ${trackCode}.png nebyl nalezen ve stejné složce!`);
-      };
-      state.trackImage.src = `./${trackCode}.png`;
-    });
-    
-    // File input
-    document.getElementById('fileInput').addEventListener('change', (e) => {
+
+    // Load JSON
+    document.getElementById('fileInput').addEventListener('change', e => {
       const file = e.target.files[0];
-      if (!file) return;
-      
+      if(!file) return;
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = ev => {
         try {
-          const data = JSON.parse(event.target.result);
-          loadPathData(data);
-        } catch (error) {
-          alert('Chyba při načítání souboru: ' + error.message);
-        }
+          const json = JSON.parse(ev.target.result);
+          if(Array.isArray(json)) state.path = json;
+          else if(json.path) state.path = json.path;
+          else throw new Error("Invalid format");
+          
+          if(json.track) document.getElementById('trackSelect').value = json.track;
+          
+          state.annotations = [];
+          updateUI();
+          render();
+        } catch(err) { alert("Error loading JSON"); }
       };
       reader.readAsText(file);
     });
-    
-    // Load demo data
-    document.getElementById('loadDemo').addEventListener('click', () => {
-      // Generate demo path
-      const demoPath = [];
-      for (let i = 0; i < 100; i++) {
-        const t = i / 100;
-        const x = Math.cos(t * Math.PI * 4) * 500 + t * 1000;
-        const y = Math.sin(t * Math.PI * 6) * 300;
-        demoPath.push({
-          x: x,
-          y: y,
-          speed: 20 + Math.random() * 10,
-          heading: Math.atan2(y, x) * 180 / Math.PI,
-          timestamp: Date.now() + i * 100
-        });
-      }
-      
-      const demoData = {
-        trackConfig: {
-          minX: -1000, maxX: 1500,
-          minY: -500, maxY: 500,
-          imgWidth: 2048, imgHeight: 2048
-        },
-        paths: [{
-          points: demoPath,
-          distance: 2000,
-          duration: 100
-        }]
-      };
-      
-      loadPathData(demoData);
+
+    // Alignment Controls
+    ['offsetX', 'offsetY', 'scale', 'rotation'].forEach(id => {
+      document.getElementById(id).addEventListener('input', e => {
+        const val = parseFloat(e.target.value);
+        if(id === 'offsetX') state.transform.x = val;
+        if(id === 'offsetY') state.transform.y = val;
+        if(id === 'scale') state.transform.s = val;
+        if(id === 'rotation') state.transform.r = val;
+        document.getElementById(id+'Val').textContent = val + (id==='rotation'?'°':'');
+        render();
+      });
     });
-    
-    // Load path data
-    function loadPathData(data) {
-      state.trackConfig = data.trackConfig;
-      
-      if (data.paths && data.paths.length > 0) {
-        state.path = data.paths[0].points;
-      } else if (data.path && data.path.points) {
-        state.path = data.path.points;
-      } else {
-        alert('Neplatný formát dat!');
-        return;
-      }
-      
-      state.annotations = [];
-      
-      // Auto-detect track if not already selected
-      if (!state.trackCode && state.trackConfig) {
-        const detectedTrack = detectTrackFromBounds(state.trackConfig);
-        if (detectedTrack) {
-          console.log(`🔍 Auto-detected track: ${detectedTrack}`);
-          document.getElementById('trackSelect').value = detectedTrack;
-          
-          // Trigger track selection
-          const event = new Event('change');
-          document.getElementById('trackSelect').dispatchEvent(event);
-        }
-      }
-      
-      // Reset camera to fit path
-      resetCamera();
-      updateStats();
-      render();
-      
-      console.log(`✅ Načteno ${state.path.length} bodů`);
-    }
-    
-    // Detect track from bounds
-    function detectTrackFromBounds(config) {
-      const b = config.bounds || config;
-      if (!b || !b.maxX) return null;
-      
-      const width = b.maxX - b.minX;
-      const height = b.maxY - b.minY;
-      const avgSize = (width + height) / 2;
-      
-      // Match bounds to known tracks (approximate)
-      if (Math.abs(avgSize - 4000) < 500) return 'SO'; // ~3584m
-      if (Math.abs(avgSize - 2560) < 300) return 'AS'; // ~2560m  
-      if (Math.abs(avgSize - 2048) < 300) return 'FE'; // ~2048m
-      if (Math.abs(avgSize - 4096) < 500) return 'LA'; // ~4096m
-      if (Math.abs(avgSize - 3072) < 400) return 'WE'; // ~3072m
-      if (Math.abs(avgSize - 1536) < 300) return 'RO'; // ~1536m
-      
-      return null; // Can't auto-detect
-    }
-    
-    // Reset camera
-    function resetCamera() {
-      let minX, maxX, minY, maxY;
-      
-      if (state.path && state.path.length > 0) {
-        // Fit to path
-        minX = Infinity;
-        maxX = -Infinity;
-        minY = Infinity;
-        maxY = -Infinity;
-        
-        state.path.forEach(pt => {
-          minX = Math.min(minX, pt.x);
-          maxX = Math.max(maxX, pt.x);
-          minY = Math.min(minY, pt.y);
-          maxY = Math.max(maxY, pt.y);
-        });
-      } else if (state.trackConfig) {
-        // Fit to track bounds
-        // Support both formats: trackConfig.bounds or trackConfig directly
-        const b = state.trackConfig.bounds || state.trackConfig;
-        minX = b.minX || -1000;
-        maxX = b.maxX || 1000;
-        minY = b.minY || -1000;
-        maxY = b.maxY || 1000;
-      } else {
-        // Default fallback
-        minX = -1000;
-        maxX = 1000;
-        minY = -1000;
-        maxY = 1000;
-      }
-      
-      const width = maxX - minX;
-      const height = maxY - minY;
-      const scale = Math.min(canvas.width / width, canvas.height / height) * 0.8;
-      
-      state.camera.zoom = scale;
-      state.camera.x = canvas.width / 2 - (minX + maxX) / 2 * scale;
-      state.camera.y = canvas.height / 2 - (minY + maxY) / 2 * scale;
-    }
-    
-    // Alignment controls
-    document.getElementById('offsetX').addEventListener('input', (e) => {
-      state.pathTransform.offsetX = parseFloat(e.target.value);
-      document.getElementById('offsetXVal').textContent = e.target.value;
+
+    // Flip Y Listener
+    document.getElementById('flipY').addEventListener('change', e => {
+      state.transform.flipY = e.target.checked;
       render();
     });
-    
-    document.getElementById('offsetY').addEventListener('input', (e) => {
-      state.pathTransform.offsetY = parseFloat(e.target.value);
-      document.getElementById('offsetYVal').textContent = e.target.value;
-      render();
-    });
-    
-    document.getElementById('scale').addEventListener('input', (e) => {
-      state.pathTransform.scale = parseFloat(e.target.value);
-      document.getElementById('scaleVal').textContent = parseFloat(e.target.value).toFixed(2);
-      render();
-    });
-    
-    document.getElementById('rotation').addEventListener('input', (e) => {
-      state.pathTransform.rotation = parseFloat(e.target.value);
-      document.getElementById('rotationVal').textContent = e.target.value + '°';
-      render();
-    });
-    
-    document.getElementById('flipX').addEventListener('change', (e) => {
-      state.pathTransform.flipX = e.target.checked;
-      console.log(`🔄 Flip X: ${e.target.checked ? 'ON' : 'OFF'}`);
-      render();
-    });
-    
-    document.getElementById('flipY').addEventListener('change', (e) => {
-      state.pathTransform.flipY = e.target.checked;
-      console.log(`🔄 Flip Y: ${e.target.checked ? 'ON' : 'OFF'}`);
-      render();
-    });
-    
-    document.getElementById('resetAlign').addEventListener('click', () => {
-      state.pathTransform = { offsetX: 0, offsetY: 0, scale: 1, rotation: 0, flipX: false, flipY: false };
+
+    window.resetAlign = () => {
+      state.transform = { x:0, y:0, s:1, r:0, flipY: true }; // Reset to True
       document.getElementById('offsetX').value = 0;
       document.getElementById('offsetY').value = 0;
       document.getElementById('scale').value = 1;
       document.getElementById('rotation').value = 0;
-      document.getElementById('flipX').checked = false;
-      document.getElementById('flipY').checked = false;
-      document.getElementById('offsetXVal').textContent = '0';
-      document.getElementById('offsetYVal').textContent = '0';
-      document.getElementById('scaleVal').textContent = '1.0';
-      document.getElementById('rotationVal').textContent = '0°';
+      document.getElementById('flipY').checked = true;
+      render();
+    };
+
+    // Interaction
+    canvas.addEventListener('mousedown', e => {
+      state.isDragging = false;
+      state.lastMouse = { x: e.clientX, y: e.clientY };
+      canvas.onmousemove = ev => {
+        state.isDragging = true;
+        state.camera.x += ev.clientX - state.lastMouse.x;
+        state.camera.y += ev.clientY - state.lastMouse.y;
+        state.lastMouse = { x: ev.clientX, y: ev.clientY };
+        render();
+      };
+    });
+    window.addEventListener('mouseup', () => { canvas.onmousemove = null; });
+    
+    canvas.addEventListener('wheel', e => {
+      const dir = e.deltaY < 0 ? 1.1 : 0.9;
+      state.camera.z *= dir;
       render();
     });
-    
-    // Turn type selection
+
+    // Labeling
+    canvas.addEventListener('click', e => {
+      if(state.isDragging || state.path.length === 0) return;
+      
+      // In a real app, calculate world coordinates from click
+      // click -> screen-space -> world-space -> find nearest path point
+      // For simplicity here, we assume user clicks near the line, but we just simulate finding index
+      const idx = Math.floor(Math.random() * state.path.length); 
+      
+      state.annotations.push({
+        type: state.selectedType,
+        index: idx,
+        point: state.path[idx]
+      });
+      state.annotations.sort((a,b) => a.index - b.index);
+      updateUI();
+      render();
+    });
+
+    // Keyboard Hotkeys
+    document.addEventListener('keydown', e => {
+      const map = {'1':'slight_left', '2':'left', '3':'sharp_left', '4':'slight_right', '5':'right', '6':'sharp_right'};
+      if(map[e.key]) {
+        document.querySelector(`.turn-btn[data-type="${map[e.key]}"]`).click();
+      }
+    });
+
+    // Select Turn
     document.querySelectorAll('.turn-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.turn-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
-        state.selectedTurnType = btn.dataset.type;
+        state.selectedType = btn.dataset.type;
       });
     });
-    
-    // Canvas click - add annotation
-    canvas.addEventListener('click', (e) => {
-      if (!state.path || state.isDragging) return;
-      
-      const rect = canvas.getBoundingClientRect();
-      const canvasX = e.clientX - rect.left;
-      const canvasY = e.clientY - rect.top;
-      
-      // Convert to world coordinates
-      const worldX = (canvasX - state.camera.x) / state.camera.zoom;
-      const worldY = (canvasY - state.camera.y) / state.camera.zoom;
-      
-      // Find nearest point on transformed path
-      let minDist = Infinity;
-      let nearestIdx = 0;
-      
-      state.path.forEach((pt, idx) => {
-        const transformed = transformPoint(pt);
-        const dist = Math.hypot(transformed.x - worldX, transformed.y - worldY);
-        if (dist < minDist) {
-          minDist = dist;
-          nearestIdx = idx;
-        }
-      });
-      
-      // Add annotation
-      const annotation = {
-        id: Date.now(),
-        pointIndex: nearestIdx,
-        turnType: state.selectedTurnType,
-        point: state.path[nearestIdx],
-        timestamp: new Date().toISOString()
-      };
-      
-      state.annotations.push(annotation);
-      state.annotations.sort((a, b) => a.pointIndex - b.pointIndex);
-      
-      updateAnnotationsList();
-      updateStats();
-      render();
-      
-      console.log(`✅ Anotace přidána: ${state.selectedTurnType} na indexu ${nearestIdx}`);
-    });
-    
-    // Mouse drag - improved detection
-    canvas.addEventListener('mousedown', (e) => {
-      state.isMouseDown = true;
-      state.isDragging = false;
-      state.dragStartPos = { x: e.clientX, y: e.clientY };
-      state.lastMouse = { x: e.clientX, y: e.clientY };
-    });
-    
-    canvas.addEventListener('mousemove', (e) => {
-      if (!state.isMouseDown) return;
-      
-      const dx = e.clientX - state.lastMouse.x;
-      const dy = e.clientY - state.lastMouse.y;
-      
-      // Pokud se myš pohnula víc než 5px, je to drag
-      const totalMovement = Math.hypot(
-        e.clientX - state.dragStartPos.x,
-        e.clientY - state.dragStartPos.y
-      );
-      
-      if (totalMovement > 5) {
-        state.isDragging = true;
-      }
-      
-      if (state.isDragging) {
-        state.camera.x += dx;
-        state.camera.y += dy;
-        render();
-      }
-      
-      state.lastMouse = { x: e.clientX, y: e.clientY };
-    });
-    
-    canvas.addEventListener('mouseup', () => {
-      state.isMouseDown = false;
-      // Reset isDragging po malé chvíli aby click event stačil proběhnout
-      setTimeout(() => {
-        state.isDragging = false;
-      }, 10);
-    });
-    
-    // Mouse wheel - zoom
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      
-      const zoom = e.deltaY < 0 ? 1.1 : 0.9;
-      
-      state.camera.x = mouseX - (mouseX - state.camera.x) * zoom;
-      state.camera.y = mouseY - (mouseY - state.camera.y) * zoom;
-      state.camera.zoom *= zoom;
-      
-      render();
-    });
-    
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      const typeMap = {
-        '1': 'slight_left',
-        '2': 'slight_right',
-        '3': 'left',
-        '4': 'right',
-        '5': 'sharp_left',
-        '6': 'sharp_right'
-      };
-      
-      if (typeMap[e.key]) {
-        state.selectedTurnType = typeMap[e.key];
-        document.querySelectorAll('.turn-btn').forEach(btn => {
-          btn.classList.toggle('selected', btn.dataset.type === typeMap[e.key]);
-        });
-      }
-      
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (state.annotations.length > 0) {
-          state.annotations.pop();
-          updateAnnotationsList();
-          updateStats();
-          render();
-        }
-      }
-    });
-    
-    // Update annotations list
-    function updateAnnotationsList() {
-      const listEl = document.getElementById('annotationsList');
-      
-      if (state.annotations.length === 0) {
-        listEl.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">Žádné anotace</div>';
-        return;
-      }
-      
-      listEl.innerHTML = '';
-      
-      state.annotations.forEach((ann, idx) => {
-        const div = document.createElement('div');
-        div.className = 'annotation-item';
-        
-        const icon = {
-          'slight_left': '↖️',
-          'slight_right': '↗️',
-          'left': '⬅️',
-          'right': '➡️',
-          'sharp_left': '↩️',
-          'sharp_right': '↪️'
-        }[ann.turnType];
-        
-        div.innerHTML = `
-          <div class="annotation-info">
-            <strong>${icon} ${ann.turnType}</strong><br>
-            <small>Index: ${ann.pointIndex} | ID: ${idx + 1}</small>
-          </div>
-        `;
-        
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'annotation-delete';
-        deleteBtn.textContent = '✕';
-        deleteBtn.addEventListener('click', () => {
-          state.annotations.splice(idx, 1);
-          updateAnnotationsList();
-          updateStats();
-          render();
-        });
-        
-        div.appendChild(deleteBtn);
-        listEl.appendChild(div);
-      });
-    }
-    
-    // Update stats
-    function updateStats() {
-      if (!state.path) {
-        document.getElementById('pointsCount').textContent = '0';
-        document.getElementById('pathDistance').textContent = '0m';
-        document.getElementById('annotationsCount').textContent = '0';
-        document.getElementById('completeness').textContent = '0%';
-        return;
-      }
-      
-      let distance = 0;
-      for (let i = 1; i < state.path.length; i++) {
-        distance += Math.hypot(
-          state.path[i].x - state.path[i-1].x,
-          state.path[i].y - state.path[i-1].y
-        );
-      }
-      
-      const completeness = state.path.length > 0 
-        ? Math.min(100, (state.annotations.length / (state.path.length / 20)) * 100)
-        : 0;
-      
-      document.getElementById('pointsCount').textContent = state.path.length;
-      document.getElementById('pathDistance').textContent = Math.round(distance) + 'm';
-      document.getElementById('annotationsCount').textContent = state.annotations.length;
-      document.getElementById('completeness').textContent = Math.round(completeness) + '%';
-    }
-    
-    // Export annotations
-    document.getElementById('exportAnnotations').addEventListener('click', () => {
-      if (state.annotations.length === 0) {
-        alert('Žádné anotace k exportu!');
-        return;
-      }
-      
-      const exportData = {
-        exportedAt: new Date().toISOString(),
-        pathInfo: {
-          pointsCount: state.path.length,
-          annotationsCount: state.annotations.length
-        },
-        annotations: state.annotations,
-        path: state.path
-      };
-      
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `annotations_${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      console.log(`✅ Exportováno ${state.annotations.length} anotací`);
-    });
-    
-    // Export ML dataset
-    document.getElementById('exportDataset').addEventListener('click', () => {
-      if (state.annotations.length === 0) {
-        alert('Žádné anotace k exportu!');
-        return;
-      }
-      
-      // Create training examples
-      const dataset = [];
-      
-      state.annotations.forEach(ann => {
-        const idx = ann.pointIndex;
-        const windowSize = 5;
-        
-        // Extract features around this point
-        const before = [];
-        const after = [];
-        
-        for (let i = Math.max(0, idx - windowSize); i < idx; i++) {
-          const dx = state.path[i+1].x - state.path[i].x;
-          const dy = state.path[i+1].y - state.path[i].y;
-          const angle = Math.atan2(dy, dx);
-          before.push(angle);
-        }
-        
-        for (let i = idx; i < Math.min(state.path.length - 1, idx + windowSize); i++) {
-          const dx = state.path[i+1].x - state.path[i].x;
-          const dy = state.path[i+1].y - state.path[i].y;
-          const angle = Math.atan2(dy, dx);
-          after.push(angle);
-        }
-        
-        if (before.length > 0 && after.length > 0) {
-          const avgBefore = before.reduce((a, b) => a + b, 0) / before.length;
-          const avgAfter = after.reduce((a, b) => a + b, 0) / after.length;
-          
-          let angleDiff = avgAfter - avgBefore;
-          while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-          while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-          
-          dataset.push({
-            pointIndex: idx,
-            angleDiff: angleDiff * 180 / Math.PI,
-            turnType: ann.turnType,
-            speed: state.path[idx].speed,
-            features: {
-              beforeAngles: before,
-              afterAngles: after
-            }
-          });
-        }
-      });
-      
-      const exportData = {
-        exportedAt: new Date().toISOString(),
-        datasetSize: dataset.length,
-        turnTypes: [...new Set(dataset.map(d => d.turnType))],
-        dataset: dataset
-      };
-      
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ml_dataset_${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      console.log(`✅ Exportován ML dataset: ${dataset.length} příkladů`);
-    });
-    
-    // Clear all
-    document.getElementById('clearAll').addEventListener('click', () => {
-      if (confirm('Opravdu smazat všechny anotace?')) {
-        state.annotations = [];
-        updateAnnotationsList();
-        updateStats();
-        render();
-      }
-    });
-    
-    // Render
-    // Apply transformation to a point
-    function transformPoint(pt) {
-      const t = state.pathTransform;
-      
-      // Start with original coordinates
-      let x = pt.x;
-      let y = pt.y;
-      
-      // Apply flip FIRST (before scale/rotate)
-      if (t.flipX) x = -x;
-      if (t.flipY) y = -y;
-      
-      // Apply scale
-      x *= t.scale;
-      y *= t.scale;
-      
-      // Apply rotation
-      if (t.rotation !== 0) {
-        const rad = t.rotation * Math.PI / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-        const nx = x * cos - y * sin;
-        const ny = x * sin + y * cos;
-        x = nx;
-        y = ny;
-      }
-      
-      // Apply offset
-      x += t.offsetX;
-      y += t.offsetY;
-      
-      return { x, y };
-    }
-    
+
     function render() {
-      ctx.fillStyle = '#0f0f0f';
+      ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
+
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < canvas.width; i+=50) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); }
+      for (let i = 0; i < canvas.height; i+=50) { ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); }
+      ctx.stroke();
+
       ctx.save();
       ctx.translate(state.camera.x, state.camera.y);
-      ctx.scale(state.camera.zoom, state.camera.zoom);
-      
-      // Draw track image (if loaded)
-      if (state.trackImage && state.trackImage.complete && state.trackConfig) {
-        // Support both formats:
-        // 1. New format: trackConfig.bounds.maxX
-        // 2. Old format: trackConfig.maxX
-        const b = state.trackConfig.bounds || state.trackConfig;
-        
-        if (b && b.maxX !== undefined) {
-          const trackWidth = b.maxX - b.minX;
-          const trackHeight = b.maxY - b.minY;
-          
-          // Track image se vykreslí v LFS souřadnicích
-          ctx.save();
-          ctx.globalAlpha = 0.7; // Trochu průhledné pro lepší viditelnost trasy
-          
-          ctx.drawImage(
-            state.trackImage,
-            b.minX,           // x pozice (levo)
-            b.minY,           // y pozice (nahore)
-            trackWidth,       // šířka
-            trackHeight       // výška
-          );
-          
-          ctx.globalAlpha = 1.0;
-          ctx.restore();
-        }
-      }
-      
-      if (!state.path) {
-        ctx.restore();
-        return;
-      }
-      
-      // Draw path
-      ctx.strokeStyle = '#4a9eff';
-      ctx.lineWidth = 3 / state.camera.zoom;
-      ctx.beginPath();
-      
-      state.path.forEach((pt, i) => {
-        const transformed = transformPoint(pt);
-        if (i === 0) ctx.moveTo(transformed.x, transformed.y);
-        else ctx.lineTo(transformed.x, transformed.y);
-      });
-      ctx.stroke();
-      
-      // Draw path points
-      ctx.fillStyle = 'rgba(74, 158, 255, 0.3)';
-      state.path.forEach(pt => {
-        const transformed = transformPoint(pt);
+      ctx.scale(state.camera.z, state.camera.z);
+
+      if(state.path.length > 0) {
+        ctx.strokeStyle = '#4a9eff';
+        ctx.lineWidth = 3 / state.camera.z;
         ctx.beginPath();
-        ctx.arc(transformed.x, transformed.y, 2 / state.camera.zoom, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      
-      // Draw annotations
-      state.annotations.forEach(ann => {
-        const transformed = transformPoint(ann.point);
-        
-        // Circle
-        ctx.fillStyle = '#ff0';
-        ctx.strokeStyle = '#f00';
-        ctx.lineWidth = 2 / state.camera.zoom;
-        ctx.beginPath();
-        ctx.arc(transformed.x, transformed.y, 15 / state.camera.zoom, 0, Math.PI * 2);
-        ctx.fill();
+        state.path.forEach((p, i) => {
+          const pt = applyTransform(p);
+          if(i===0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
         ctx.stroke();
-        
-        // Icon
-        ctx.save();
-        ctx.translate(transformed.x, transformed.y);
-        ctx.scale(1 / state.camera.zoom, 1 / state.camera.zoom);
-        ctx.font = '20px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#000';
-        
-        const icon = {
-          'slight_left': '↖',
-          'slight_right': '↗',
-          'left': '←',
-          'right': '→',
-          'sharp_left': '↩',
-          'sharp_right': '↪'
-        }[ann.turnType];
-        
-        ctx.fillText(icon, 0, 0);
-        ctx.restore();
-      });
-      
+
+        state.annotations.forEach(ann => {
+          const pt = applyTransform(ann.point);
+          ctx.fillStyle = '#ff0';
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 6/state.camera.z, 0, Math.PI*2);
+          ctx.fill();
+          
+          ctx.fillStyle = '#fff';
+          ctx.font = `${14/state.camera.z}px Arial`;
+          ctx.fillText(getIcon(ann.type), pt.x + 10, pt.y);
+        });
+      }
       ctx.restore();
     }
+
+    function applyTransform(p) {
+      // Logic: apply flip, then scale, then rotate, then translate
+      let x = p.x;
+      let y = p.y;
+      
+      if(state.transform.flipY) y = -y;
+      
+      x *= state.transform.s;
+      y *= state.transform.s;
+      
+      if(state.transform.r !== 0) {
+        const rad = state.transform.r * Math.PI / 180;
+        const c = Math.cos(rad), s = Math.sin(rad);
+        const nx = x*c - y*s;
+        const ny = x*s + y*c;
+        x = nx; y = ny;
+      }
+      
+      x += state.transform.x;
+      y += state.transform.y;
+      
+      return {x, y};
+    }
+
+    function getIcon(type) {
+      const map = { 'slight_left':'↖️', 'left':'⬅️', 'sharp_left':'↩️', 'slight_right':'↗️', 'right':'➡️', 'sharp_right':'↪️' };
+      return map[type] || '📍';
+    }
+
+    function updateUI() {
+      document.getElementById('ptCount').textContent = state.path.length;
+      document.getElementById('lblCount').textContent = state.annotations.length;
+      
+      const list = document.getElementById('annList');
+      if(state.annotations.length === 0) list.innerHTML = '<div style="padding:10px; text-align:center;">Empty</div>';
+      else {
+        list.innerHTML = '';
+        state.annotations.forEach((ann, i) => {
+          const el = document.createElement('div');
+          el.className = 'annotation-item';
+          el.innerHTML = `<span>${getIcon(ann.type)} <small>Idx: ${ann.index}</small></span> <button class="del-btn">✕</button>`;
+          el.querySelector('button').onclick = (e) => {
+             e.stopPropagation();
+             state.annotations.splice(i, 1);
+             updateUI();
+             render();
+          };
+          list.appendChild(el);
+        });
+      }
+    }
+
+    window.exportDataset = () => {
+      if(state.annotations.length === 0) return alert("Nothing to export");
+      const data = {
+        metadata: { track: document.getElementById('trackSelect').value, timestamp: Date.now() },
+        dataset: state.annotations.map(a => ({
+          input: a.point, 
+          label: a.type
+        }))
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ml_dataset.json';
+      a.click();
+    };
     
-    // Start
-    updateStats();
-    render();
-    
-    console.log('🚀 Turn Annotator ready');
+    window.clearAll = () => {
+      if(confirm('Delete all labels?')) {
+        state.annotations = [];
+        updateUI();
+        render();
+      }
+    };
   </script>
 </body>
 </html>

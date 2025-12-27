@@ -1,618 +1,391 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LFS GPS Logger - Záznam tras</title>
+  <title>LFS GPS Recorder</title>
   <style>
+    :root {
+      --accent: #4a9eff;
+      --bg-glass: rgba(10, 10, 10, 0.95);
+      --border-glass: rgba(255, 255, 255, 0.15);
+      --text-main: #fff;
+      --text-dim: #aaa;
+      --danger: #ff4d4d;
+      --success: #40c057;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: monospace;
-      background: #0a0a0a;
-      color: #0f0;
+
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: var(--text-main);
       overflow: hidden;
+      height: 100vh;
+      width: 100vw;
     }
-    
-    #canvas { 
-      display: block; 
-      border: 2px solid #0f0;
+
+    #canvas-container { position: absolute; inset: 0; z-index: 0; background: #0f0f0f; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    .glass-panel {
+      background: var(--bg-glass);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      padding: 12px 16px;
+      position: absolute;
+      z-index: 10;
     }
-    
-    #info {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      background: rgba(0, 20, 0, 0.9);
-      border: 2px solid #0f0;
-      padding: 15px;
-      font-size: 14px;
-      min-width: 300px;
-      z-index: 1000;
+
+    /* TOP BAR */
+    #top-bar {
+      top: 20px; left: 20px; right: 20px;
+      height: 64px;
+      display: flex; justify-content: space-between; align-items: center;
     }
-    
-    #info h2 {
-      color: #0ff;
-      margin-bottom: 10px;
-      border-bottom: 1px solid #0f0;
-      padding-bottom: 5px;
+
+    .brand { font-weight: 700; font-size: 18px; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #444; transition: 0.3s; }
+    .status-dot.connected { background: var(--success); box-shadow: 0 0 10px var(--success); }
+
+    /* STATS PANEL */
+    #stats-panel {
+      top: 100px; left: 20px;
+      width: 200px;
+      display: flex; flex-direction: column; gap: 10px;
     }
-    
-    .stat {
-      display: flex;
-      justify-content: space-between;
-      margin: 5px 0;
+
+    .stat-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .stat-val { font-size: 18px; font-weight: 700; color: var(--accent); }
+    .stat-lbl { font-size: 11px; color: var(--text-dim); text-transform: uppercase; }
+
+    /* CONTROLS */
+    #bottom-bar {
+      bottom: 30px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 15px; align-items: center;
     }
-    
-    .stat-label {
-      color: #0f0;
-    }
-    
-    .stat-value {
-      color: #ff0;
-      font-weight: bold;
-    }
-    
-    #playerSelect {
-      width: 100%;
-      background: rgba(0, 50, 0, 0.5);
-      border: 1px solid #0f0;
-      color: #0f0;
-      padding: 8px;
-      margin: 10px 0;
-      font-family: monospace;
-      font-size: 14px;
-      cursor: pointer;
-    }
-    
-    #playerSelect option {
-      background: #001a00;
-      color: #0f0;
-    }
-    
-    #playerSelect:hover {
-      background: rgba(0, 100, 0, 0.7);
-    }
-    
-    #controls {
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      background: rgba(0, 20, 0, 0.9);
-      border: 2px solid #0f0;
-      padding: 15px;
-      z-index: 1000;
-    }
-    
+
     button {
-      background: #0f0;
-      color: #000;
-      border: none;
-      padding: 10px 20px;
-      margin: 5px;
-      cursor: pointer;
-      font-weight: bold;
-      font-family: monospace;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid var(--border-glass);
+      color: white; padding: 12px 24px; border-radius: 30px;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    button:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    
+    #recordBtn { background: var(--accent); color: #000; border: none; width: 160px; justify-content: center; }
+    #recordBtn.recording { background: var(--danger); color: #fff; animation: pulse 2s infinite; }
+    
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+
+    select {
+      background: rgba(255,255,255,0.1); border: 1px solid var(--border-glass);
+      color: white; padding: 8px; border-radius: 8px; outline: none; cursor: pointer;
     }
     
-    button:hover {
-      background: #0ff;
+    /* MODAL STYLES */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
     }
+    .modal-overlay.active { opacity: 1; pointer-events: auto; }
     
-    button:active {
-      background: #ff0;
+    .modal-box {
+      background: #111; border: 1px solid #333; padding: 30px; border-radius: 16px;
+      max-width: 500px; width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     }
-    
-    button.recording {
-      background: #f00;
-      color: #fff;
-      animation: pulse 1s infinite;
+    .modal-title { color: var(--accent); font-size: 22px; margin-bottom: 20px; font-weight: bold; }
+    .step-list { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+    .step { display: flex; gap: 15px; }
+    .step-num { 
+      background: #333; color: var(--accent); width: 24px; height: 24px; flex-shrink: 0;
+      border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: bold; 
     }
-    
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    
-    #recordedPaths {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      background: rgba(0, 20, 0, 0.9);
-      border: 2px solid #0f0;
-      padding: 15px;
-      max-height: 80vh;
-      overflow-y: auto;
-      min-width: 250px;
-      z-index: 1000;
-    }
-    
-    #recordedPaths h3 {
-      color: #0ff;
-      margin-bottom: 10px;
-    }
-    
-    .path-item {
-      background: rgba(0, 50, 0, 0.5);
-      border: 1px solid #0f0;
-      padding: 8px;
-      margin: 5px 0;
-      cursor: pointer;
-    }
-    
-    .path-item:hover {
-      background: rgba(0, 100, 0, 0.7);
-      border-color: #0ff;
-    }
-    
-    .path-item.selected {
-      background: rgba(0, 150, 0, 0.9);
-      border-color: #ff0;
-    }
+    .step-text { color: #ccc; font-size: 14px; line-height: 1.5; }
+    .highlight { color: #fff; font-weight: 600; }
   </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
-  
-  <div id="info">
-    <h2>GPS LOGGER</h2>
-    <div class="stat">
-      <span class="stat-label">Status:</span>
-      <span class="stat-value" id="status">ČEKÁ NA DATA</span>
+
+  <div id="introModal" class="modal-overlay active">
+    <div class="modal-box">
+      <div class="modal-title">🔴 Recording Workflow</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">Run the <span class="highlight">LFS-LMAR Server</span> (Node.js bridge).</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">Connect LFS to a <b>[TC] Server</b> (e.g., CityDriving).</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">Wait for the <span class="highlight" style="color:var(--success)">Green Dot</span> in top-left (WebSocket Connected).</div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-text">Click <b>REC</b> and drive your desired path/turn.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-text">Click <b>Save JSON</b>. This file will be used in the Annotator.</div>
+        </div>
+      </div>
+      <button onclick="closeModal()" style="width:100%; justify-content:center; background:var(--accent); color:#000;">I Understand</button>
     </div>
-    <div class="stat">
-      <span class="stat-label">Záznam:</span>
-      <span class="stat-value" id="recording">VYPNUTO</span>
-    </div>
-    <div class="stat">
-      <span class="stat-label">Body aktuální:</span>
-      <span class="stat-value" id="currentPoints">0</span>
-    </div>
-    <div class="stat">
-      <span class="stat-label">Vzdálenost:</span>
-      <span class="stat-value" id="distance">0 m</span>
-    </div>
-    <div class="stat">
-      <span class="stat-label">Rychlost:</span>
-      <span class="stat-value" id="speed">0 km/h</span>
-    </div>
-    <div class="stat">
-      <span class="stat-label">Pozice:</span>
-      <span class="stat-value" id="position">--, --</span>
-    </div>
-    <hr style="border-color: #0f0; margin: 10px 0;">
-    <div class="stat-label" style="margin-bottom: 5px;">SLEDOVANÝ HRÁČ:</div>
-    <select id="playerSelect">
-      <option value="">🎮 Vyber hráče...</option>
-    </select>
-  </div>
-  
-  <div id="controls">
-    <button id="startRecBtn">▶ START ZÁZNAM</button>
-    <button id="stopRecBtn" disabled>⏹ STOP ZÁZNAM</button>
-    <button id="clearBtn">🗑️ VYMAZAT AKTUÁLNÍ</button>
-    <button id="exportBtn">💾 EXPORT VŠECH TRAS</button>
-    <button id="exportCurrentBtn">📤 EXPORT AKTUÁLNÍ</button>
-  </div>
-  
-  <div id="recordedPaths">
-    <h3>📋 ZAZNAMENANÉ TRASY</h3>
-    <div id="pathList"></div>
   </div>
 
-  <script type="module">
-    // Placeholder track config - NAHRAĎ svými hodnotami
-    const TRACK_CONFIG = {
-      minX: -2000, maxX: 2000,
-      minY: -2000, maxY: 2000,
-      imgWidth: 2048, imgHeight: 2048
-    };
-    
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  <div id="canvas-container"><canvas id="canvas"></canvas></div>
+
+  <nav id="top-bar" class="glass-panel">
+    <div class="brand">
+      <div class="status-dot" id="connectionDot"></div>
+      📡 GPS Recorder
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <select id="trackSelect">
+        <option value="BL">Blackwood (BL)</option>
+        <option value="SO">South City (SO)</option>
+        <option value="AS">Aston (AS)</option>
+        <option value="FE">Fern Bay (FE)</option>
+        <option value="RO">Rockingham (RO)</option>
+        <option value="WE">Westhill (WE)</option>
+        <option value="AU">Autocross (AU)</option>
+      </select>
+      <button onclick="document.getElementById('introModal').classList.add('active')" style="padding: 8px 12px; font-size: 16px;">?</button>
+    </div>
+  </nav>
+
+  <div id="stats-panel" class="glass-panel">
+    <div class="stat-row">
+      <span class="stat-lbl">Status</span>
+      <span class="stat-val" id="statusText" style="font-size: 14px;">Idle</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-lbl">Points</span>
+      <span class="stat-val" id="pointsCount">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-lbl">Distance</span>
+      <span class="stat-val" id="distCount">0m</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-lbl">Speed</span>
+      <span class="stat-val" id="speedVal">0 km/h</span>
+    </div>
+  </div>
+
+  <div id="bottom-bar" class="glass-panel" style="border-radius: 40px; padding: 10px 20px;">
+    <button id="recordBtn">⚫ REC</button>
+    <button id="downloadBtn" onclick="exportData()">💾 Save JSON</button>
+    <button id="clearBtn" onclick="clearPath()">🗑️ Clear</button>
+  </div>
+
+  <script>
+    // Configuration
+    const WS_URL = 'ws://localhost:8080'; 
     
     // State
     const state = {
-      isRecording: false,
-      currentPath: [],
-      recordedPaths: [],
-      cars: new Map(),
-      followingPLID: null,
-      lastUpdate: Date.now()
+      connected: false,
+      recording: false,
+      path: [],
+      currentPos: { x: 0, y: 0, heading: 0 },
+      camera: { x: 0, y: 0, zoom: 1 }
     };
-    
-    // Load saved paths from localStorage
-    function loadSavedPaths() {
-      const saved = localStorage.getItem('gpsLoggerPaths');
-      if (saved) {
-        state.recordedPaths = JSON.parse(saved);
-        updatePathList();
-      }
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function closeModal() {
+      document.getElementById('introModal').classList.remove('active');
     }
-    
-    // Save paths to localStorage
-    function savePaths() {
-      localStorage.setItem('gpsLoggerPaths', JSON.stringify(state.recordedPaths));
-    }
-    
-    // World to Canvas conversion
-    function worldToCanvas(x, y) {
-      const cfg = TRACK_CONFIG;
-      const px = ((x - cfg.minX) / (cfg.maxX - cfg.minX)) * cfg.imgWidth;
-      const py = ((y - cfg.minY) / (cfg.maxY - cfg.minY)) * cfg.imgHeight;
-      return { x: px, y: py };
-    }
-    
-    // Connect to WebSocket (předpokládám že máš běžící server)
-    const ws = new WebSocket('ws://localhost:3000');
-    
-    ws.onopen = () => {
-      console.log('✅ WebSocket připojen');
-      document.getElementById('status').textContent = 'PŘIPOJENO';
-    };
-    
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+
+    // Resize
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      state.camera.x = canvas.width / 2;
+      state.camera.y = canvas.height / 2;
+    });
+    window.dispatchEvent(new Event('resize'));
+
+    // WebSocket
+    function connect() {
+      console.log("Attempting WS connection...");
+      const ws = new WebSocket(WS_URL);
       
-      if (data.type === 'positions') {
-        // Clean up disconnected cars
-        const validPLIDs = new Set();
-        
-        data.cars.forEach(car => {
-          state.cars.set(car.plid, car);
-          validPLIDs.add(car.plid);
-          
-          // Zaznamenávej sledované auto
-          if (state.isRecording && car.plid === state.followingPLID) {
-            const point = {
-              x: car.x,
-              y: car.y,
-              speed: car.speed,
-              heading: car.heading,
-              timestamp: Date.now()
-            };
-            
-            // Přidej pouze pokud se auto pohnulo (min 1m)
-            if (state.currentPath.length === 0) {
-              state.currentPath.push(point);
-            } else {
-              const last = state.currentPath[state.currentPath.length - 1];
-              const dist = Math.hypot(point.x - last.x, point.y - last.y);
-              if (dist > 1) {
-                state.currentPath.push(point);
-              }
-            }
+      ws.onopen = () => {
+        state.connected = true;
+        document.getElementById('connectionDot').classList.add('connected');
+        console.log('Connected to LFS');
+      };
+
+      ws.onclose = () => {
+        state.connected = false;
+        document.getElementById('connectionDot').classList.remove('connected');
+        setTimeout(connect, 2000);
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          // Expecting data: { x, y, z, heading, speed }
+          if (data.x !== undefined && data.y !== undefined) {
+            updatePosition(data);
           }
-        });
-        
-        // Remove disconnected cars
-        for (let plid of state.cars.keys()) {
-          if (!validPLIDs.has(plid)) {
-            state.cars.delete(plid);
-            if (state.followingPLID === plid) {
-              state.followingPLID = null;
-            }
-          }
-        }
-        
-        updatePlayerSelect();
-        state.lastUpdate = Date.now();
-      }
-    };
-    
-    // Update player select dropdown
-    function updatePlayerSelect() {
-      const select = document.getElementById('playerSelect');
-      const currentValue = select.value;
-      
-      select.innerHTML = '<option value="">🎮 Vyber hráče...</option>';
-      
-      Array.from(state.cars.values()).forEach(car => {
-        const option = document.createElement('option');
-        option.value = car.plid;
-        option.textContent = car.name.replace(/\^[0-9xX]/g, ''); // Strip LFS colors
-        
-        if (state.followingPLID === car.plid) {
-          option.textContent = '👁️ ' + option.textContent;
-          option.selected = true;
-        }
-        
-        select.appendChild(option);
-      });
-      
-      // Reset if following player disconnected
-      if (state.followingPLID && !state.cars.has(state.followingPLID)) {
-        state.followingPLID = null;
-        select.value = '';
-      }
+        } catch (err) {}
+      };
     }
     
-    ws.onerror = (error) => {
-      console.error('❌ WebSocket error:', error);
-      document.getElementById('status').textContent = 'CHYBA PŘIPOJENÍ';
-    };
-    
-    ws.onclose = () => {
-      console.log('⚠️ WebSocket uzavřen');
-      document.getElementById('status').textContent = 'ODPOJENO';
-    };
-    
+    // --- DELETE THIS CALL IF USING REAL SERVER ---
+    simulateLFS(); 
+    // -------------------------------------------
+
+    function updatePosition(data) {
+      state.currentPos = data;
+      document.getElementById('speedVal').textContent = Math.round((data.speed || 0) * 3.6) + ' km/h';
+
+      if (state.recording) {
+        const last = state.path[state.path.length - 1];
+        // Record point if moved more than 1 meter
+        if (!last || Math.hypot(data.x - last.x, data.y - last.y) > 1) {
+          state.path.push({
+            x: data.x,
+            y: data.y,
+            z: data.z || 0,
+            speed: data.speed || 0,
+            heading: data.heading || 0,
+            timestamp: Date.now()
+          });
+          updateStats();
+        }
+      }
+    }
+
     // Controls
-    // Player select
-    document.getElementById('playerSelect').addEventListener('change', (e) => {
-      const plid = parseInt(e.target.value);
-      if (plid) {
-        state.followingPLID = plid;
-        console.log(`👁️ Sledování hráče PLID: ${plid}`);
+    const recBtn = document.getElementById('recordBtn');
+    recBtn.addEventListener('click', () => {
+      state.recording = !state.recording;
+      if (state.recording) {
+        recBtn.classList.add('recording');
+        recBtn.innerHTML = '⏹ STOP';
+        document.getElementById('statusText').textContent = 'Recording...';
+        document.getElementById('statusText').style.color = '#ff4d4d';
       } else {
-        state.followingPLID = null;
-        console.log(`⏹️ Sledování zastaveno`);
+        recBtn.classList.remove('recording');
+        recBtn.innerHTML = '⚫ REC';
+        document.getElementById('statusText').textContent = 'Paused';
+        document.getElementById('statusText').style.color = '#fff';
       }
     });
-    
-    document.getElementById('startRecBtn').addEventListener('click', () => {
-      state.isRecording = true;
-      state.currentPath = [];
-      document.getElementById('startRecBtn').disabled = true;
-      document.getElementById('stopRecBtn').disabled = false;
-      document.getElementById('startRecBtn').classList.add('recording');
-      document.getElementById('recording').textContent = 'ZAPNUTO ●';
-      console.log('🔴 Záznam SPUŠTĚN');
-    });
-    
-    document.getElementById('stopRecBtn').addEventListener('click', () => {
-      if (state.currentPath.length > 10) {
-        const pathData = {
-          id: Date.now(),
-          timestamp: new Date().toISOString(),
-          points: state.currentPath,
-          distance: calculateDistance(state.currentPath),
-          duration: (state.currentPath[state.currentPath.length - 1].timestamp - state.currentPath[0].timestamp) / 1000,
-          avgSpeed: calculateAvgSpeed(state.currentPath)
-        };
-        
-        state.recordedPaths.push(pathData);
-        savePaths();
-        updatePathList();
-        console.log(`✅ Trasa uložena: ${pathData.points.length} bodů, ${Math.round(pathData.distance)}m`);
-      }
-      
-      state.isRecording = false;
-      state.currentPath = [];
-      document.getElementById('startRecBtn').disabled = false;
-      document.getElementById('stopRecBtn').disabled = true;
-      document.getElementById('startRecBtn').classList.remove('recording');
-      document.getElementById('recording').textContent = 'VYPNUTO';
-      console.log('⏹ Záznam ZASTAVEN');
-    });
-    
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      if (confirm('Vymazat aktuální záznam?')) {
-        state.currentPath = [];
-      }
-    });
-    
-    document.getElementById('exportBtn').addEventListener('click', () => {
-      exportAllPaths();
-    });
-    
-    document.getElementById('exportCurrentBtn').addEventListener('click', () => {
-      if (state.currentPath.length === 0) {
-        alert('Žádná aktuální trasa k exportu!');
-        return;
-      }
-      exportPath(state.currentPath, 'current_path');
-    });
-    
-    // Calculate distance
-    function calculateDistance(points) {
+
+    function updateStats() {
+      document.getElementById('pointsCount').textContent = state.path.length;
       let dist = 0;
-      for (let i = 1; i < points.length; i++) {
-        dist += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
+      for(let i=1; i<state.path.length; i++) {
+        dist += Math.hypot(state.path[i].x - state.path[i-1].x, state.path[i].y - state.path[i-1].y);
       }
-      return dist;
+      document.getElementById('distCount').textContent = Math.round(dist) + 'm';
     }
-    
-    // Calculate average speed
-    function calculateAvgSpeed(points) {
-      if (points.length === 0) return 0;
-      const sum = points.reduce((acc, p) => acc + p.speed, 0);
-      return sum / points.length;
-    }
-    
-    // Update path list
-    function updatePathList() {
-      const listEl = document.getElementById('pathList');
-      listEl.innerHTML = '';
+
+    window.exportData = () => {
+      if (state.path.length === 0) return alert('No path recorded!');
       
-      if (state.recordedPaths.length === 0) {
-        listEl.innerHTML = '<div style="color: #888;">Žádné zaznamenané trasy</div>';
-        return;
-      }
-      
-      state.recordedPaths.forEach((path, idx) => {
-        const div = document.createElement('div');
-        div.className = 'path-item';
-        const date = new Date(path.timestamp).toLocaleString('cs-CZ');
-        div.innerHTML = `
-          <strong>Trasa #${idx + 1}</strong><br>
-          📅 ${date}<br>
-          📏 ${Math.round(path.distance)}m<br>
-          ⏱️ ${Math.round(path.duration)}s<br>
-          📍 ${path.points.length} bodů
-        `;
-        div.addEventListener('click', () => {
-          // Možnost smazat kliknutím
-          if (confirm(`Smazat trasu #${idx + 1}?`)) {
-            state.recordedPaths.splice(idx, 1);
-            savePaths();
-            updatePathList();
-          }
-        });
-        listEl.appendChild(div);
-      });
-    }
-    
-    // Export all paths
-    function exportAllPaths() {
-      if (state.recordedPaths.length === 0) {
-        alert('Žádné trasy k exportu!');
-        return;
-      }
-      
-      const exportData = {
-        exportedAt: new Date().toISOString(),
-        trackConfig: TRACK_CONFIG,
-        paths: state.recordedPaths
+      const exportObj = {
+        track: document.getElementById('trackSelect').value,
+        recordedAt: new Date().toISOString(),
+        path: state.path
       };
-      
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+
+      const blob = new Blob([JSON.stringify(exportObj, null, 2)], {type: 'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `gps_paths_${Date.now()}.json`;
+      a.download = `lfs_path_${exportObj.track}_${Date.now()}.json`;
       a.click();
-      URL.revokeObjectURL(url);
-      
-      console.log(`✅ Exportováno ${state.recordedPaths.length} tras`);
-    }
-    
-    // Export single path
-    function exportPath(points, name) {
-      const exportData = {
-        exportedAt: new Date().toISOString(),
-        trackConfig: TRACK_CONFIG,
-        path: {
-          timestamp: new Date().toISOString(),
-          points: points,
-          distance: calculateDistance(points),
-          duration: (points[points.length - 1].timestamp - points[0].timestamp) / 1000,
-          avgSpeed: calculateAvgSpeed(points)
-        }
-      };
-      
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${name}_${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-    
-    // Render loop
+    };
+
+    window.clearPath = () => {
+      if(confirm('Clear current path?')) {
+        state.path = [];
+        updateStats();
+      }
+    };
+
+    // Render Loop
     function render() {
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Vykresli mřížku
-      ctx.strokeStyle = '#0f0';
-      ctx.globalAlpha = 0.1;
+
+      ctx.strokeStyle = '#151515';
       ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < canvas.width; i+=50) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); }
+      for (let i = 0; i < canvas.height; i+=50) { ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); }
+      ctx.stroke();
+
+      ctx.save();
+      ctx.translate(state.camera.x, state.camera.y);
+      ctx.scale(0.5, 0.5); 
       
-      for (let x = 0; x < canvas.width; x += 50) {
+      const carX = state.currentPos.x; 
+      const carY = state.currentPos.y;
+      
+      // Center camera on car
+      ctx.translate(-carX, -carY);
+
+      // Draw Path
+      if (state.path.length > 0) {
+        ctx.strokeStyle = '#4a9eff';
+        ctx.lineWidth = 4;
+        ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
-      }
-      
-      for (let y = 0; y < canvas.height; y += 50) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-      }
-      
-      ctx.globalAlpha = 1;
-      
-      // Vykresli zaznamenané trasy
-      ctx.strokeStyle = '#0f0';
-      ctx.lineWidth = 2;
-      ctx.globalAlpha = 0.3;
-      
-      state.recordedPaths.forEach(path => {
-        ctx.beginPath();
-        path.points.forEach((pt, i) => {
-          const p = worldToCanvas(pt.x, pt.y);
-          if (i === 0) ctx.moveTo(p.x, p.y);
+        state.path.forEach((p, i) => {
+          if (i===0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });
         ctx.stroke();
-      });
-      
-      ctx.globalAlpha = 1;
-      
-      // Vykresli aktuální trasu
-      if (state.currentPath.length > 0) {
-        ctx.strokeStyle = '#ff0';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        
-        state.currentPath.forEach((pt, i) => {
-          const p = worldToCanvas(pt.x, pt.y);
-          if (i === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
-        });
-        ctx.stroke();
-        
-        // Body na trase
-        ctx.fillStyle = '#f00';
-        state.currentPath.forEach(pt => {
-          const p = worldToCanvas(pt.x, pt.y);
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-          ctx.fill();
-        });
       }
+
+      // Draw Car
+      ctx.save();
+      ctx.translate(carX, carY);
+      ctx.rotate((state.currentPos.heading + 90) * Math.PI / 180); 
       
-      // Vykresli auta
-      state.cars.forEach((car, plid) => {
-        const p = worldToCanvas(car.x, car.y);
-        
-        // Auto jako trojúhelník ukazující směr
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(car.heading * Math.PI / 180);
-        
-        ctx.fillStyle = plid === state.followingPLID ? '#0ff' : '#0f0';
-        ctx.beginPath();
-        ctx.moveTo(10, 0);
-        ctx.lineTo(-5, 5);
-        ctx.lineTo(-5, -5);
-        ctx.closePath();
-        ctx.fill();
-        
-        ctx.restore();
-      });
-      
-      // Update stats
-      if (state.followingPLID !== null) {
-        const car = state.cars.get(state.followingPLID);
-        if (car) {
-          document.getElementById('speed').textContent = Math.round(car.speed * 3.6) + ' km/h';
-          document.getElementById('position').textContent = `${Math.round(car.x)}, ${Math.round(car.y)}`;
-        }
-      }
-      
-      if (state.currentPath.length > 0) {
-        document.getElementById('currentPoints').textContent = state.currentPath.length;
-        document.getElementById('distance').textContent = Math.round(calculateDistance(state.currentPath)) + ' m';
-      } else {
-        document.getElementById('currentPoints').textContent = '0';
-        document.getElementById('distance').textContent = '0 m';
-      }
-      
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(15, 0);
+      ctx.lineTo(-10, 10);
+      ctx.lineTo(-10, -10);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.restore();
       requestAnimationFrame(render);
     }
     
-    // Start
-    loadSavedPaths();
+    connect();
     render();
-    
-    console.log('🚀 GPS Logger ready');
+
+    // Simulation for UI testing
+    function simulateLFS() {
+      let x = 0, y = 0, h = 0;
+      setInterval(() => {
+        if(state.recording) {
+          h += (Math.random() - 0.5) * 5;
+          x += Math.cos(h * Math.PI/180) * 3;
+          y += Math.sin(h * Math.PI/180) * 3;
+          updatePosition({ x, y, heading: h, speed: 15 });
+        }
+      }, 50);
+    }
   </script>
 </body>
 </html>
