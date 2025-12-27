@@ -1,0 +1,20 @@
+{
+  "favorites": [
+    {
+      "name": "Hitrádio FM",
+      "url": "https://ice.abradio.cz/hit128.mp3",
+      "metadataProvider": "abradia",
+      "metadataSlug": "hitradio-north-music"
+    },
+    {
+      "name": "Radio Beat",
+      "url": "https://stream.rcast.net/70838"
+    },
+    {
+      "name": "Evropa 2",
+      "url": "https://ice.actve.net/fm-evropa2-128"
+    }
+  ],
+  "recent": [],
+  "lang": "en"
+}
