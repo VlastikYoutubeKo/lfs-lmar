@@ -25,37 +25,6 @@ jobs:
           node-version: '20'
       
 # 1. UPDATE README V REPOZITÁŘI (Oprava detached HEAD)
-      - name: Update README Version in Repo
-        shell: powershell
-        run: |
-          # Nastavení Gitu
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
-          
-          # DŮLEŽITÉ: Přepnutí z Tagu na větev Main
-          Write-Host "Switching to main branch..."
-          git fetch origin main
-          git checkout main
-          git pull origin main --rebase
-          
-          # Nyní jsme na main, můžeme upravovat
-          $version = "${{ github.ref_name }}"
-          Write-Host "Updating README to version: $version"
-          
-          $content = Get-Content "README.md" -Raw -Encoding UTF8
-          $newContent = $content -replace '\{\{VERSION\}\}', $version
-          Set-Content -Path "README.md" -Value $newContent -Encoding UTF8
-          
-          # Commit a Push
-          try {
-            git add README.md
-            git commit -m "chore: update readme version to $version [skip ci]"
-            # Teď už můžeme pushnout normálně, protože jsme na main
-            git push origin main
-            Write-Host "Success: README updated."
-          } catch {
-            Write-Host "Nothing to commit or push failed (maybe version already set)."
-          }
 
       - name: Install dependencies
         run: npm install --production
@@ -64,7 +33,7 @@ jobs:
       - name: Create Release Notes Script
         shell: powershell
         run: |
-          $criptContent = @"
+          $scriptContent = @"
           import { execSync } from 'child_process';
           import fs from 'fs';
 
@@ -233,12 +202,19 @@ jobs:
           } | ConvertTo-Json -Depth 10
 
           try {
-            $response = Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK_URL -Method Post -Body $webhookBody -ContentType 'application/json; charset=utf-8'
-            Write-Host "✓ Discord notification sent successfully"
+            Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK_URL -Method Post -Body $webhookBody -ContentType 'application/json; charset=utf-8' | Out-Null
+            Write-Host "Discord notification sent successfully"
           } catch {
-            Write-Host "Error sending Discord notification: $_"
+            Write-Host "Error sending Discord notification:"
+            Write-Host $_.Exception.Message
+            
             if ($_.Exception.Response) {
-              Write-Host "Response: $($_.Exception.Response.StatusCode)"
+              try {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+                Write-Host "Status Code: $statusCode"
+              } catch {
+                Write-Host "Could not retrieve status code"
+              }
             }
           }
 
