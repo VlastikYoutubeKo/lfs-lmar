@@ -64,50 +64,76 @@ jobs:
       - name: Create Release Notes Script
         shell: powershell
         run: |
-          $scriptContent = @"
+          $criptContent = @"
           import { execSync } from 'child_process';
           import fs from 'fs';
 
-          const GEMINI_MODEL = 'gemini-3-pro-preview';
+          const GEMINI_MODEL = 'gemini-2.0-flash-exp';
           const OUTPUT_FILE = 'release_body.md';
 
           console.log('--- STARTING LOG ANALYSIS ---');
 
           let commits = '';
           let diff = '';
+          let prevTag = '';
 
           try {
-            const prevTag = execSync('git describe --tags --abbrev=0 HEAD^', { encoding: 'utf8' }).trim();
-            console.log('Previous tag: ' + prevTag);
-            const range = prevTag + '..HEAD';
-            commits = execSync('git log ' + range + ' --pretty=format:"- %s (%an)"', { encoding: 'utf8' }).toString();
-            diff = execSync('git diff ' + range + ' --stat -- ":!package-lock.json" ":!node_modules/*"', { encoding: 'utf8' }).toString();
+            // Získej všechny tagy
+            const allTags = execSync('git tag --sort=-v:refname', { encoding: 'utf8' })
+              .trim()
+              .split('\\n')
+              .filter(t => t);
+            
+            console.log('All tags:', allTags);
+            
+            // Najdi předchozí tag (druhý v seznamu)
+            if (allTags.length >= 2) {
+              prevTag = allTags[1];
+              const currentTag = allTags[0];
+              console.log('Comparing: ' + prevTag + '..' + currentTag);
+              
+              const range = prevTag + '..' + currentTag;
+              commits = execSync('git log ' + range + ' --pretty=format:"- %s (%an)" --no-merges', { encoding: 'utf8' });
+              diff = execSync('git diff ' + range + ' --stat -- ":!package-lock.json" ":!node_modules/*"', { encoding: 'utf8' });
+              
+              console.log('Commits found: ' + commits.split('\\n').length);
+            } else {
+              // Fallback: poslední commity
+              console.log('Only one tag, using last 20 commits');
+              commits = execSync('git log -n 20 --pretty=format:"- %s (%an)" --no-merges', { encoding: 'utf8' });
+              diff = execSync('git diff HEAD~20..HEAD --stat -- ":!package-lock.json" ":!node_modules/*"', { encoding: 'utf8' });
+            }
           } catch (e) {
-            console.log('Could not determine tag range, using fallback.');
-            try {
-                commits = execSync('git log -n 15 --pretty=format:"- %s (%an)"', { encoding: 'utf8' }).toString();
-            } catch (err) { commits = 'No git history available.'; }
+            console.error('Git error:', e.message);
+            commits = execSync('git log -n 20 --pretty=format:"- %s (%an)" --no-merges', { encoding: 'utf8' });
+            diff = 'No diff available';
           }
 
+          console.log('=== COMMITS ===');
+          console.log(commits);
+          console.log('=== DIFF STATS ===');
+          console.log(diff);
+
           const tagName = process.env.TAG_NAME || 'Unknown Version';
-          
-          // ZDE BYLA CHYBA: Nahrazeno klasickými uvozovkami a plusy (+)
-          const prompt = "You are a Release Manager. Write release notes for " + tagName + ".\n\n" +
-          "COMMITS HISTORY:\n" + commits + "\n\n" +
-          "DIFF STATS:\n" + diff + "\n\n" +
-          "INSTRUCTIONS:\n" +
-          "1. Start with headline: # Release Notes - " + tagName + "\n" +
-          "2. Categorize changes into:\n" +
-          "   ## 🚀 New Features\n" +
-          "   ## 🐞 Bug Fixes\n" +
-          "   ## 🔧 Improvements\n" +
-          "3. Use standard Unicode Emojis.\n" +
-          "4. Be concise. Summarize technical changes clearly.\n" +
-          "5. Output ONLY the Markdown.";
+
+          const prompt = "You are a Release Manager. Write release notes for " + tagName + ".\\n\\n" +
+          "COMMITS HISTORY:\\n" + commits + "\\n\\n" +
+          "DIFF STATS:\\n" + diff + "\\n\\n" +
+          "INSTRUCTIONS:\\n" +
+          "1. Start with headline: # Release Notes - " + tagName + "\\n" +
+          "2. Categorize changes into:\\n" +
+          "   ## 🚀 New Features\\n" +
+          "   ## 🐞 Bug Fixes\\n" +
+          "   ## 🔧 Improvements\\n" +
+          "3. Use standard Unicode Emojis.\\n" +
+          "4. Be concise. Summarize technical changes clearly.\\n" +
+          "5. If there are NO commits or changes, write: '## ⚠️ No significant changes in this release'\\n" +
+          "6. DO NOT invent features. Only write about actual changes from commits.\\n" +
+          "7. Output ONLY the Markdown.";
 
           async function run() {
             if (!process.env.GEMINI_API_KEY) { 
-              fs.writeFileSync(OUTPUT_FILE, '## Manual Check Required', 'utf8'); 
+              fs.writeFileSync(OUTPUT_FILE, '## Manual Check Required\\n\\nNo API key provided.', 'utf8'); 
               return; 
             }
 
@@ -124,14 +150,14 @@ jobs:
               if (data.candidates && data.candidates[0].content) {
                 const text = data.candidates[0].content.parts[0].text;
                 fs.writeFileSync(OUTPUT_FILE, text, 'utf8');
-                console.log('Notes generated successfully.');
+                console.log('✓ Notes generated successfully.');
               } else {
-                console.log('AI Response empty:', JSON.stringify(data));
-                fs.writeFileSync(OUTPUT_FILE, '## AI Generation Failed', 'utf8');
+                console.log('AI Response:', JSON.stringify(data));
+                fs.writeFileSync(OUTPUT_FILE, '## AI Generation Failed\\n\\nResponse: ' + JSON.stringify(data), 'utf8');
               }
             } catch (e) {
               console.error(e);
-              fs.writeFileSync(OUTPUT_FILE, '## AI Error: ' + e.message, 'utf8');
+              fs.writeFileSync(OUTPUT_FILE, '## AI Error\\n\\n' + e.message, 'utf8');
             }
           }
 
