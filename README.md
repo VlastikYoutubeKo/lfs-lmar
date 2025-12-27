@@ -1,4 +1,4 @@
-﻿# 🏁 LFS Live Map + Radio v0.0.7_MachineLearning_1
+﻿# 🏁 LFS Live Map + Radio v0.0.7_ML
 
 Live For Speed InSim application combining a real-time server map with an integrated internet radio player.
 
