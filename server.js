@@ -46,6 +46,40 @@ const FORCE_COP_MODE = process.argv.includes('--cop');   // Forces local player 
 const ENABLE_DEBUG = process.argv.includes('--debug');   // Shows verbose API logs
 const ENABLE_GPS_LOGGER = process.argv.includes('--map-logger');   // GPS location logger
 
+
+// === ML CONFIG LOADING ===
+let mlConfig = {
+  turn_detection: {
+    min_speed: 10,              // Default: Minimální rychlost pro detekci zatáček (m/s)
+    angle_threshold_slight: 30,  // Default: Úhel pro "slight" zatáčku (stupně)
+    angle_threshold_normal: 60,  // Default: Úhel pro "normal" zatáčku
+    angle_threshold_sharp: 90,   // Default: Úhel pro "sharp" zatáčku
+    curvature_window: 5,         // Default: Počet bodů pro výpočet křivosti
+    lookahead_distance: 50       // Default: Vzdálenost pro detekci blížící se zatáčky (metry)
+  }
+};
+
+// Load optimized config from ML training (if exists)
+try {
+  const configPath = './optimized_config.json';
+  if (fs.existsSync(configPath)) {
+    const loadedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    mlConfig = { ...mlConfig, ...loadedConfig };
+    console.log(`${colors.green}[ML Config]${colors.reset} Loaded optimized configuration:`);
+    console.log(`  Min Speed: ${mlConfig.turn_detection.min_speed} m/s`);
+    console.log(`  Slight Turn: ${mlConfig.turn_detection.angle_threshold_slight}°`);
+    console.log(`  Normal Turn: ${mlConfig.turn_detection.angle_threshold_normal}°`);
+    console.log(`  Sharp Turn: ${mlConfig.turn_detection.angle_threshold_sharp}°`);
+    if (loadedConfig.model_metrics) {
+      console.log(`  Model Accuracy: ${(loadedConfig.model_metrics.accuracy * 100).toFixed(1)}%`);
+    }
+  } else {
+    console.log(`${colors.yellow}[ML Config]${colors.reset} Using default turn detection parameters`);
+    console.log(`${colors.cyan}[Tip]${colors.reset} Train ML model to optimize: python train_model.py ml_dataset.json`);
+  }
+} catch (err) {
+  console.log(`${colors.yellow}[ML Config]${colors.reset} Error loading config, using defaults:`, err.message);
+}
 // === ANSI COLORS ===
 const colors = {
   reset: '\x1b[0m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
@@ -111,6 +145,119 @@ function convertLFSText(text) {
   }
   return result;
 }
+
+// === TURN DETECTION FUNCTIONS ===
+// History of recent positions for each car (for curvature calculation)
+const carPositionHistory = new Map();
+
+/**
+ * Calculate angle change between three points
+ * Returns angle in degrees (positive = left turn, negative = right turn)
+ */
+function calculateAngleChange(p1, p2, p3) {
+  const angle1 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+  const angle2 = Math.atan2(p3.y - p2.y, p3.x - p2.x);
+  let angleDiff = (angle2 - angle1) * 180 / Math.PI;
+  
+  // Normalize to -180 to 180
+  while (angleDiff > 180) angleDiff -= 360;
+  while (angleDiff < -180) angleDiff += 360;
+  
+  return angleDiff;
+}
+
+/**
+ * Calculate curvature from recent position history
+ * Returns { angle: number, direction: 'left'|'right'|'straight', turnType: string|null }
+ */
+function detectTurn(plid, currentPos) {
+  const config = mlConfig.turn_detection;
+  
+  // Get or create history for this car
+  if (!carPositionHistory.has(plid)) {
+    carPositionHistory.set(plid, []);
+  }
+  
+  const history = carPositionHistory.get(plid);
+  history.push({ ...currentPos, timestamp: Date.now() });
+  
+  // Keep only recent positions (based on curvature_window)
+  const maxHistory = config.curvature_window * 2;
+  if (history.length > maxHistory) {
+    history.shift();
+  }
+  
+  // Need at least 3 points to calculate curvature
+  if (history.length < 3) {
+    return { angle: 0, direction: 'straight', turnType: null };
+  }
+  
+  // Check speed threshold
+  if (currentPos.speed < config.min_speed) {
+    return { angle: 0, direction: 'straight', turnType: null };
+  }
+  
+  // Calculate average angle change over curvature window
+  const window = Math.min(config.curvature_window, history.length - 2);
+  let totalAngle = 0;
+  let samples = 0;
+  
+  for (let i = history.length - window - 2; i < history.length - 2; i++) {
+    if (i >= 0) {
+      const angle = calculateAngleChange(history[i], history[i + 1], history[i + 2]);
+      totalAngle += angle;
+      samples++;
+    }
+  }
+  
+  const avgAngle = samples > 0 ? totalAngle / samples : 0;
+  const absAngle = Math.abs(avgAngle);
+  
+  // Determine direction
+  let direction = 'straight';
+  let turnType = null;
+  
+  if (absAngle > config.angle_threshold_slight) {
+    direction = avgAngle > 0 ? 'left' : 'right';
+    
+    // Classify turn severity
+    if (absAngle < config.angle_threshold_normal) {
+      turnType = direction === 'left' ? 'slight_left' : 'slight_right';
+    } else if (absAngle < config.angle_threshold_sharp) {
+      turnType = direction;
+    } else {
+      turnType = direction === 'left' ? 'sharp_left' : 'sharp_right';
+    }
+  }
+  
+  return { 
+    angle: avgAngle, 
+    direction, 
+    turnType,
+    absAngle: absAngle.toFixed(1)
+  };
+}
+
+/**
+ * Clean up old position histories to prevent memory leaks
+ */
+function cleanupOldHistories() {
+  const now = Date.now();
+  const maxAge = 30000; // 30 seconds
+  
+  for (const [plid, history] of carPositionHistory.entries()) {
+    if (history.length > 0) {
+      const lastTimestamp = history[history.length - 1].timestamp;
+      if (now - lastTimestamp > maxAge) {
+        carPositionHistory.delete(plid);
+      }
+    }
+  }
+}
+
+// Cleanup old histories every 60 seconds
+setInterval(cleanupOldHistories, 60000);
+
 
 // === TRANSLATIONS ===
 const TRANSLATIONS = {
@@ -462,9 +609,21 @@ wssMap.on('connection', (ws) => {
   
   const mapData = Array.from(cars.values())
       .filter(c => getPlayerRole(c.plid) === 'CIVILIAN') 
-      .map(c => ({
-          plid: c.plid, name: c.pname, x: c.x, y: c.y, z: c.z, speed: c.speed, heading: c.heading
-      }));
+      .map(c => {
+          const turnInfo = detectTurn(c.plid, { x: c.x, y: c.y, speed: c.speed, heading: c.heading });
+          return {
+              plid: c.plid, 
+              name: c.pname, 
+              x: c.x, 
+              y: c.y, 
+              z: c.z, 
+              speed: c.speed, 
+              heading: c.heading,
+              turn: turnInfo.turnType,
+              turnAngle: turnInfo.absAngle,
+              turnDirection: turnInfo.direction
+          };
+      });
       
   if (mapData.length > 0) ws.send(JSON.stringify({ type: 'positions', cars: mapData }));
 });
@@ -1183,9 +1342,24 @@ inSim.on(PacketType.ISP_MCI, (p) => {
           if (targetRole === 'SUSPECT') return true;
       }
       return false; 
-  }).map(c => ({
-      plid: c.plid, name: c.pname, x: c.x, y: c.y, z: c.z, speed: c.speed, heading: c.heading
-  }));
+  }).map(c => {
+      // Detect turn for this car
+      const turnInfo = detectTurn(c.plid, { x: c.x, y: c.y, speed: c.speed, heading: c.heading });
+      
+      return {
+          plid: c.plid, 
+          name: c.pname, 
+          x: c.x, 
+          y: c.y, 
+          z: c.z, 
+          speed: c.speed, 
+          heading: c.heading,
+          // ML-detected turn information
+          turn: turnInfo.turnType,           // e.g. 'left', 'sharp_right', null
+          turnAngle: turnInfo.absAngle,      // Angle in degrees
+          turnDirection: turnInfo.direction  // 'left', 'right', 'straight'
+      };
+  });
   
   wssMap.clients.forEach(client => { if (client.readyState === 1) client.send(JSON.stringify({ type: 'positions', cars: mapData })); });
 });

@@ -1,4 +1,4 @@
-﻿# 🏁 LFS Live Map + Radio v0.0.7.3_1-alpha
+﻿# 🏁 LFS Live Map + Radio {{VERSION}}
 
 Live For Speed InSim application combining a real-time server map with an integrated internet radio player.
 
