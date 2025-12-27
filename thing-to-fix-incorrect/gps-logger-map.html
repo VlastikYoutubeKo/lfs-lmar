@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LFS GPS Logger - Záznam tras</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: monospace;
+      background: #0a0a0a;
+      color: #0f0;
+      overflow: hidden;
+    }
+    
+    #canvas { 
+      display: block; 
+      border: 2px solid #0f0;
+    }
+    
+    #info {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 20, 0, 0.9);
+      border: 2px solid #0f0;
+      padding: 15px;
+      font-size: 14px;
+      min-width: 300px;
+      z-index: 1000;
+    }
+    
+    #info h2 {
+      color: #0ff;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #0f0;
+      padding-bottom: 5px;
+    }
+    
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+    }
+    
+    .stat-label {
+      color: #0f0;
+    }
+    
+    .stat-value {
+      color: #ff0;
+      font-weight: bold;
+    }
+    
+    #playerSelect {
+      width: 100%;
+      background: rgba(0, 50, 0, 0.5);
+      border: 1px solid #0f0;
+      color: #0f0;
+      padding: 8px;
+      margin: 10px 0;
+      font-family: monospace;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    
+    #playerSelect option {
+      background: #001a00;
+      color: #0f0;
+    }
+    
+    #playerSelect:hover {
+      background: rgba(0, 100, 0, 0.7);
+    }
+    
+    #controls {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0, 20, 0, 0.9);
+      border: 2px solid #0f0;
+      padding: 15px;
+      z-index: 1000;
+    }
+    
+    button {
+      background: #0f0;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      font-family: monospace;
+    }
+    
+    button:hover {
+      background: #0ff;
+    }
+    
+    button:active {
+      background: #ff0;
+    }
+    
+    button.recording {
+      background: #f00;
+      color: #fff;
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    #recordedPaths {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 20, 0, 0.9);
+      border: 2px solid #0f0;
+      padding: 15px;
+      max-height: 80vh;
+      overflow-y: auto;
+      min-width: 250px;
+      z-index: 1000;
+    }
+    
+    #recordedPaths h3 {
+      color: #0ff;
+      margin-bottom: 10px;
+    }
+    
+    .path-item {
+      background: rgba(0, 50, 0, 0.5);
+      border: 1px solid #0f0;
+      padding: 8px;
+      margin: 5px 0;
+      cursor: pointer;
+    }
+    
+    .path-item:hover {
+      background: rgba(0, 100, 0, 0.7);
+      border-color: #0ff;
+    }
+    
+    .path-item.selected {
+      background: rgba(0, 150, 0, 0.9);
+      border-color: #ff0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  
+  <div id="info">
+    <h2>GPS LOGGER</h2>
+    <div class="stat">
+      <span class="stat-label">Status:</span>
+      <span class="stat-value" id="status">ČEKÁ NA DATA</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Záznam:</span>
+      <span class="stat-value" id="recording">VYPNUTO</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Body aktuální:</span>
+      <span class="stat-value" id="currentPoints">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Vzdálenost:</span>
+      <span class="stat-value" id="distance">0 m</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Rychlost:</span>
+      <span class="stat-value" id="speed">0 km/h</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Pozice:</span>
+      <span class="stat-value" id="position">--, --</span>
+    </div>
+    <hr style="border-color: #0f0; margin: 10px 0;">
+    <div class="stat-label" style="margin-bottom: 5px;">SLEDOVANÝ HRÁČ:</div>
+    <select id="playerSelect">
+      <option value="">🎮 Vyber hráče...</option>
+    </select>
+  </div>
+  
+  <div id="controls">
+    <button id="startRecBtn">▶ START ZÁZNAM</button>
+    <button id="stopRecBtn" disabled>⏹ STOP ZÁZNAM</button>
+    <button id="clearBtn">🗑️ VYMAZAT AKTUÁLNÍ</button>
+    <button id="exportBtn">💾 EXPORT VŠECH TRAS</button>
+    <button id="exportCurrentBtn">📤 EXPORT AKTUÁLNÍ</button>
+  </div>
+  
+  <div id="recordedPaths">
+    <h3>📋 ZAZNAMENANÉ TRASY</h3>
+    <div id="pathList"></div>
+  </div>
+
+  <script type="module">
+    // Placeholder track config - NAHRAĎ svými hodnotami
+    const TRACK_CONFIG = {
+      minX: -2000, maxX: 2000,
+      minY: -2000, maxY: 2000,
+      imgWidth: 2048, imgHeight: 2048
+    };
+    
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    // State
+    const state = {
+      isRecording: false,
+      currentPath: [],
+      recordedPaths: [],
+      cars: new Map(),
+      followingPLID: null,
+      lastUpdate: Date.now()
+    };
+    
+    // Load saved paths from localStorage
+    function loadSavedPaths() {
+      const saved = localStorage.getItem('gpsLoggerPaths');
+      if (saved) {
+        state.recordedPaths = JSON.parse(saved);
+        updatePathList();
+      }
+    }
+    
+    // Save paths to localStorage
+    function savePaths() {
+      localStorage.setItem('gpsLoggerPaths', JSON.stringify(state.recordedPaths));
+    }
+    
+    // World to Canvas conversion
+    function worldToCanvas(x, y) {
+      const cfg = TRACK_CONFIG;
+      const px = ((x - cfg.minX) / (cfg.maxX - cfg.minX)) * cfg.imgWidth;
+      const py = ((y - cfg.minY) / (cfg.maxY - cfg.minY)) * cfg.imgHeight;
+      return { x: px, y: py };
+    }
+    
+    // Connect to WebSocket (předpokládám že máš běžící server)
+    const ws = new WebSocket('ws://localhost:3000');
+    
+    ws.onopen = () => {
+      console.log('✅ WebSocket připojen');
+      document.getElementById('status').textContent = 'PŘIPOJENO';
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'positions') {
+        // Clean up disconnected cars
+        const validPLIDs = new Set();
+        
+        data.cars.forEach(car => {
+          state.cars.set(car.plid, car);
+          validPLIDs.add(car.plid);
+          
+          // Zaznamenávej sledované auto
+          if (state.isRecording && car.plid === state.followingPLID) {
+            const point = {
+              x: car.x,
+              y: car.y,
+              speed: car.speed,
+              heading: car.heading,
+              timestamp: Date.now()
+            };
+            
+            // Přidej pouze pokud se auto pohnulo (min 1m)
+            if (state.currentPath.length === 0) {
+              state.currentPath.push(point);
+            } else {
+              const last = state.currentPath[state.currentPath.length - 1];
+              const dist = Math.hypot(point.x - last.x, point.y - last.y);
+              if (dist > 1) {
+                state.currentPath.push(point);
+              }
+            }
+          }
+        });
+        
+        // Remove disconnected cars
+        for (let plid of state.cars.keys()) {
+          if (!validPLIDs.has(plid)) {
+            state.cars.delete(plid);
+            if (state.followingPLID === plid) {
+              state.followingPLID = null;
+            }
+          }
+        }
+        
+        updatePlayerSelect();
+        state.lastUpdate = Date.now();
+      }
+    };
+    
+    // Update player select dropdown
+    function updatePlayerSelect() {
+      const select = document.getElementById('playerSelect');
+      const currentValue = select.value;
+      
+      select.innerHTML = '<option value="">🎮 Vyber hráče...</option>';
+      
+      Array.from(state.cars.values()).forEach(car => {
+        const option = document.createElement('option');
+        option.value = car.plid;
+        option.textContent = car.name.replace(/\^[0-9xX]/g, ''); // Strip LFS colors
+        
+        if (state.followingPLID === car.plid) {
+          option.textContent = '👁️ ' + option.textContent;
+          option.selected = true;
+        }
+        
+        select.appendChild(option);
+      });
+      
+      // Reset if following player disconnected
+      if (state.followingPLID && !state.cars.has(state.followingPLID)) {
+        state.followingPLID = null;
+        select.value = '';
+      }
+    }
+    
+    ws.onerror = (error) => {
+      console.error('❌ WebSocket error:', error);
+      document.getElementById('status').textContent = 'CHYBA PŘIPOJENÍ';
+    };
+    
+    ws.onclose = () => {
+      console.log('⚠️ WebSocket uzavřen');
+      document.getElementById('status').textContent = 'ODPOJENO';
+    };
+    
+    // Controls
+    // Player select
+    document.getElementById('playerSelect').addEventListener('change', (e) => {
+      const plid = parseInt(e.target.value);
+      if (plid) {
+        state.followingPLID = plid;
+        console.log(`👁️ Sledování hráče PLID: ${plid}`);
+      } else {
+        state.followingPLID = null;
+        console.log(`⏹️ Sledování zastaveno`);
+      }
+    });
+    
+    document.getElementById('startRecBtn').addEventListener('click', () => {
+      state.isRecording = true;
+      state.currentPath = [];
+      document.getElementById('startRecBtn').disabled = true;
+      document.getElementById('stopRecBtn').disabled = false;
+      document.getElementById('startRecBtn').classList.add('recording');
+      document.getElementById('recording').textContent = 'ZAPNUTO ●';
+      console.log('🔴 Záznam SPUŠTĚN');
+    });
+    
+    document.getElementById('stopRecBtn').addEventListener('click', () => {
+      if (state.currentPath.length > 10) {
+        const pathData = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          points: state.currentPath,
+          distance: calculateDistance(state.currentPath),
+          duration: (state.currentPath[state.currentPath.length - 1].timestamp - state.currentPath[0].timestamp) / 1000,
+          avgSpeed: calculateAvgSpeed(state.currentPath)
+        };
+        
+        state.recordedPaths.push(pathData);
+        savePaths();
+        updatePathList();
+        console.log(`✅ Trasa uložena: ${pathData.points.length} bodů, ${Math.round(pathData.distance)}m`);
+      }
+      
+      state.isRecording = false;
+      state.currentPath = [];
+      document.getElementById('startRecBtn').disabled = false;
+      document.getElementById('stopRecBtn').disabled = true;
+      document.getElementById('startRecBtn').classList.remove('recording');
+      document.getElementById('recording').textContent = 'VYPNUTO';
+      console.log('⏹ Záznam ZASTAVEN');
+    });
+    
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      if (confirm('Vymazat aktuální záznam?')) {
+        state.currentPath = [];
+      }
+    });
+    
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      exportAllPaths();
+    });
+    
+    document.getElementById('exportCurrentBtn').addEventListener('click', () => {
+      if (state.currentPath.length === 0) {
+        alert('Žádná aktuální trasa k exportu!');
+        return;
+      }
+      exportPath(state.currentPath, 'current_path');
+    });
+    
+    // Calculate distance
+    function calculateDistance(points) {
+      let dist = 0;
+      for (let i = 1; i < points.length; i++) {
+        dist += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
+      }
+      return dist;
+    }
+    
+    // Calculate average speed
+    function calculateAvgSpeed(points) {
+      if (points.length === 0) return 0;
+      const sum = points.reduce((acc, p) => acc + p.speed, 0);
+      return sum / points.length;
+    }
+    
+    // Update path list
+    function updatePathList() {
+      const listEl = document.getElementById('pathList');
+      listEl.innerHTML = '';
+      
+      if (state.recordedPaths.length === 0) {
+        listEl.innerHTML = '<div style="color: #888;">Žádné zaznamenané trasy</div>';
+        return;
+      }
+      
+      state.recordedPaths.forEach((path, idx) => {
+        const div = document.createElement('div');
+        div.className = 'path-item';
+        const date = new Date(path.timestamp).toLocaleString('cs-CZ');
+        div.innerHTML = `
+          <strong>Trasa #${idx + 1}</strong><br>
+          📅 ${date}<br>
+          📏 ${Math.round(path.distance)}m<br>
+          ⏱️ ${Math.round(path.duration)}s<br>
+          📍 ${path.points.length} bodů
+        `;
+        div.addEventListener('click', () => {
+          // Možnost smazat kliknutím
+          if (confirm(`Smazat trasu #${idx + 1}?`)) {
+            state.recordedPaths.splice(idx, 1);
+            savePaths();
+            updatePathList();
+          }
+        });
+        listEl.appendChild(div);
+      });
+    }
+    
+    // Export all paths
+    function exportAllPaths() {
+      if (state.recordedPaths.length === 0) {
+        alert('Žádné trasy k exportu!');
+        return;
+      }
+      
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        trackConfig: TRACK_CONFIG,
+        paths: state.recordedPaths
+      };
+      
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gps_paths_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      console.log(`✅ Exportováno ${state.recordedPaths.length} tras`);
+    }
+    
+    // Export single path
+    function exportPath(points, name) {
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        trackConfig: TRACK_CONFIG,
+        path: {
+          timestamp: new Date().toISOString(),
+          points: points,
+          distance: calculateDistance(points),
+          duration: (points[points.length - 1].timestamp - points[0].timestamp) / 1000,
+          avgSpeed: calculateAvgSpeed(points)
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${name}_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    
+    // Render loop
+    function render() {
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Vykresli mřížku
+      ctx.strokeStyle = '#0f0';
+      ctx.globalAlpha = 0.1;
+      ctx.lineWidth = 1;
+      
+      for (let x = 0; x < canvas.width; x += 50) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      
+      for (let y = 0; y < canvas.height; y += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+      
+      ctx.globalAlpha = 1;
+      
+      // Vykresli zaznamenané trasy
+      ctx.strokeStyle = '#0f0';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.3;
+      
+      state.recordedPaths.forEach(path => {
+        ctx.beginPath();
+        path.points.forEach((pt, i) => {
+          const p = worldToCanvas(pt.x, pt.y);
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+      });
+      
+      ctx.globalAlpha = 1;
+      
+      // Vykresli aktuální trasu
+      if (state.currentPath.length > 0) {
+        ctx.strokeStyle = '#ff0';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        
+        state.currentPath.forEach((pt, i) => {
+          const p = worldToCanvas(pt.x, pt.y);
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+        
+        // Body na trase
+        ctx.fillStyle = '#f00';
+        state.currentPath.forEach(pt => {
+          const p = worldToCanvas(pt.x, pt.y);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+      
+      // Vykresli auta
+      state.cars.forEach((car, plid) => {
+        const p = worldToCanvas(car.x, car.y);
+        
+        // Auto jako trojúhelník ukazující směr
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(car.heading * Math.PI / 180);
+        
+        ctx.fillStyle = plid === state.followingPLID ? '#0ff' : '#0f0';
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(-5, 5);
+        ctx.lineTo(-5, -5);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+      });
+      
+      // Update stats
+      if (state.followingPLID !== null) {
+        const car = state.cars.get(state.followingPLID);
+        if (car) {
+          document.getElementById('speed').textContent = Math.round(car.speed * 3.6) + ' km/h';
+          document.getElementById('position').textContent = `${Math.round(car.x)}, ${Math.round(car.y)}`;
+        }
+      }
+      
+      if (state.currentPath.length > 0) {
+        document.getElementById('currentPoints').textContent = state.currentPath.length;
+        document.getElementById('distance').textContent = Math.round(calculateDistance(state.currentPath)) + ' m';
+      } else {
+        document.getElementById('currentPoints').textContent = '0';
+        document.getElementById('distance').textContent = '0 m';
+      }
+      
+      requestAnimationFrame(render);
+    }
+    
+    // Start
+    loadSavedPaths();
+    render();
+    
+    console.log('🚀 GPS Logger ready');
+  </script>
+</body>
+</html>
