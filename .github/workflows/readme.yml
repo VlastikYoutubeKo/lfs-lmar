@@ -176,7 +176,7 @@ jobs:
         shell: powershell
         run: |
           $footer = @"
-          
+
           ---
           *Released by @VlastikYoutubeKo*
 
@@ -187,6 +187,58 @@ jobs:
           "@
           # Append s encodingem UTF8
           Add-Content -Path release_body.md -Value $footer -Encoding UTF8
+
+      - name: Display Generated Changelog
+        shell: powershell
+        run: |
+          Write-Host "=========================================="
+          Write-Host "GENERATED CHANGELOG:"
+          Write-Host "=========================================="
+          Get-Content release_body.md -Raw -Encoding UTF8 | Write-Host
+          Write-Host "=========================================="
+
+      - name: Send Changelog to Discord
+        shell: powershell
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if (-not $env:DISCORD_WEBHOOK_URL) {
+            Write-Host "Warning: DISCORD_WEBHOOK_URL secret not set, skipping Discord notification"
+            exit 0
+          }
+
+          $changelog = Get-Content release_body.md -Raw -Encoding UTF8
+          $version = "${{ github.ref_name }}"
+
+          # Discord má limit 2000 znaků pro popis embedu
+          $maxLength = 1900
+          if ($changelog.Length -gt $maxLength) {
+            $changelog = $changelog.Substring(0, $maxLength) + "...`n`n*[Changelog truncated - see full release notes on GitHub]*"
+          }
+
+          $webhookBody = @{
+            embeds = @(
+              @{
+                title = "🚀 New Release: $version"
+                description = $changelog
+                color = 5814783
+                url = "https://github.com/${{ github.repository }}/releases/tag/$version"
+                timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                footer = @{
+                  text = "LFS Live Map + Radio"
+                  icon_url = "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+                }
+              }
+            )
+          } | ConvertTo-Json -Depth 10
+
+          try {
+            $response = Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK_URL -Method Post -Body $webhookBody -ContentType 'application/json; charset=utf-8'
+            Write-Host "✓ Discord notification sent successfully"
+          } catch {
+            Write-Host "Error sending Discord notification: $_"
+            Write-Host "Response: $($_.Exception.Response)"
+          }
 
       # 3. BALÍČKOVÁNÍ (Už nemusí měnit README, to jsme udělali v kroku 1)
       - name: Package Source Code
