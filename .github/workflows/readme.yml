@@ -172,32 +172,31 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          Write-Host "=== DISCORD WEBHOOK START ==="
+          Write-Host "DISCORD WEBHOOK START"
           
           if (-not $env:DISCORD_WEBHOOK_URL) {
-            Write-Host "Warning: DISCORD_WEBHOOK_URL secret not set, skipping Discord notification"
+            Write-Host "Warning: DISCORD_WEBHOOK_URL secret not set"
             exit 0
           }
           
-          Write-Host "1. Loading changelog..."
+          Write-Host "Step 1: Loading changelog"
           $changelog = Get-Content release_body.md -Raw -Encoding UTF8
-          Write-Host "   Loaded $($changelog.Length) characters"
+          Write-Host "Loaded $($changelog.Length) characters"
           
           $version = "${{ github.ref_name }}"
-          Write-Host "2. Version: $version"
+          Write-Host "Step 2: Version is $version"
 
-          # Discord má limit 2000 znaků pro popis embedu
           $maxLength = 1900
           if ($changelog.Length -gt $maxLength) {
-            Write-Host "3. Truncating changelog..."
-            $changelog = $changelog.Substring(0, $maxLength) + "...`n`n*[Changelog truncated]*"
+            Write-Host "Step 3: Truncating changelog"
+            $changelog = $changelog.Substring(0, $maxLength) + "...`n`n[Changelog truncated]"
           }
 
-          Write-Host "4. Building payload..."
+          Write-Host "Step 4: Building payload"
           $webhookBody = @{
             embeds = @(
               @{
-                title = "🚀 New Release: $version"
+                title = "New Release: $version"
                 description = $changelog
                 color = 5814783
                 url = "https://github.com/${{ github.repository }}/releases/tag/$version"
@@ -210,17 +209,17 @@ jobs:
             )
           } | ConvertTo-Json -Depth 10
           
-          Write-Host "5. Payload size: $($webhookBody.Length) bytes"
-          Write-Host "6. Sending to Discord..."
+          Write-Host "Step 5: Payload size is $($webhookBody.Length) bytes"
+          Write-Host "Step 6: Sending to Discord"
 
           try {
             Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK_URL -Method Post -Body $webhookBody -ContentType 'application/json; charset=utf-8' -TimeoutSec 10 | Out-Null
-            Write-Host "✓ SUCCESS - Discord notification sent"
+            Write-Host "SUCCESS: Discord notification sent"
           } catch {
-            Write-Host "✗ FAILED - Error: $($_.Exception.Message)"
+            Write-Host "FAILED: $($_.Exception.Message)"
           }
           
-          Write-Host "=== DISCORD WEBHOOK END ==="
+          Write-Host "DISCORD WEBHOOK END"
 
       # 3. BALÍČKOVÁNÍ (Už nemusí měnit README, to jsme udělali v kroku 1)
       - name: Package Source Code
