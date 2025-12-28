@@ -46,6 +46,11 @@ const FORCE_COP_MODE = process.argv.includes('--cop');   // Forces local player 
 const ENABLE_DEBUG = process.argv.includes('--debug');   // Shows verbose API logs
 const ENABLE_GPS_LOGGER = process.argv.includes('--map-logger');   // GPS location logger
 
+// === ANSI COLORS ===
+const colors = {
+  reset: '\x1b[0m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
+  blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m'
+};
 
 // === ML CONFIG LOADING ===
 let mlConfig = {
@@ -80,11 +85,7 @@ try {
 } catch (err) {
   console.log(`${colors.yellow}[ML Config]${colors.reset} Error loading config, using defaults:`, err.message);
 }
-// === ANSI COLORS ===
-const colors = {
-  reset: '\x1b[0m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
-  blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m'
-};
+
 
 // === TC API CONFIG ===
 const TC_API_BASE = 'https://world.city-driving.co.uk/api/v2/json';
