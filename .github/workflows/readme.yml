@@ -24,12 +24,9 @@ jobs:
         with:
           node-version: '20'
       
-# 1. UPDATE README V REPOZITÁŘI (Oprava detached HEAD)
-
       - name: Install dependencies
         run: npm install --production
 
-# 2. GENERATE AI NOTES (Oprava syntaxe pro PowerShell)
       - name: Create Release Notes Script
         shell: powershell
         run: |
@@ -37,7 +34,7 @@ jobs:
           import { execSync } from 'child_process';
           import fs from 'fs';
 
-          const GEMINI_MODEL = 'gemini-2.0-flash-exp';
+          const GEMINI_MODEL = 'gemini-3-flash-preview';
           const OUTPUT_FILE = 'release_body.md';
 
           console.log('--- STARTING LOG ANALYSIS ---');
@@ -154,7 +151,6 @@ jobs:
           2. Download and Extract ZIP
           3. Run `START.bat`
           "@
-          # Append s encodingem UTF8
           Add-Content -Path release_body.md -Value $footer -Encoding UTF8
 
       - name: Display Generated Changelog
@@ -166,43 +162,47 @@ jobs:
           Get-Content release_body.md -Raw -Encoding UTF8 | Write-Host
           Write-Host "=========================================="
 
-      # 3. BALÍČKOVÁNÍ (Už nemusí měnit README, to jsme udělali v kroku 1)
       - name: Package Source Code
         shell: powershell
         run: |
           $releaseDir = "release\LFS-LiveMap-Radio"
           New-Item -ItemType Directory -Force -Path $releaseDir
           
-          $filesToCopy = @(
-            "public",
-            "node_modules",
-            "server.js",
-            "radio_browser.js",
-            "abradia_api.js",
-            "track_names.js",
-            "gps_logger.js",
-            "tc_locations.js",
-            "local_music_addon.js",
-            "package.json",
-            "START.bat",
-            "README.md" 
-          )
-          # README.md se zkopíruje už upravené z rootu (díky kroku 1)
-
-          foreach ($item in $filesToCopy) {
-            if (Test-Path $item) {
-              Copy-Item -Path $item -Destination $releaseDir -Recurse -Force
+          Write-Host "Copying all repository files..."
+          
+          # Kopíruj všechny soubory a složky z rootu
+          Get-ChildItem -Path . -Force | Where-Object {
+            # Vyloučit tyto složky/soubory
+            $_.Name -notin @(
+              '.git',
+              '.github', 
+              'release',
+              'node_modules',
+              '.gitignore',
+              'readme.yml',
+              '.DS_Store',
+              'Thumbs.db'
+            )
+          } | ForEach-Object {
+            Write-Host "  - Copying: $($_.Name)"
+            Copy-Item -Path $_.FullName -Destination $releaseDir -Recurse -Force
+          }
+          
+          # Zkopíruj node_modules (pro ready-to-run balíček)
+          if (Test-Path "node_modules") {
+            Write-Host "  - Copying: node_modules (this may take a while...)"
+            Copy-Item -Path "node_modules" -Destination $releaseDir -Recurse -Force
+          }
+          
+          # Config handling - zkopíruj example jako config pokud neexistuje
+          if (-not (Test-Path "$releaseDir\radio_config.json")) {
+            if (Test-Path "radio_config.example.json") {
+              Write-Host "  - Creating radio_config.json from example"
+              Copy-Item "radio_config.example.json" -Destination "$releaseDir\radio_config.json"
             }
           }
           
-          # Config handling
-          if (-not (Test-Path "$releaseDir\radio_config.json")) {
-              if (Test-Path "radio_config.example.json") {
-                  Copy-Item "radio_config.example.json" -Destination "$releaseDir\radio_config.json"
-              } elseif (Test-Path "radio_config.json") {
-                   Copy-Item "radio_config.json" -Destination "$releaseDir\radio_config.json"
-              }
-          }
+          Write-Host "Packaging complete!"
 
       - name: Create release archive
         run: |
