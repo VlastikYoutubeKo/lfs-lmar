@@ -16,10 +16,9 @@ import {
   searchStationsByName, 
   voteForStation 
 } from './radio_browser.js';
-import { 
-  getAbradiaStations, 
-  prepareAbradiaStation,
-  getAbradiaNowPlaying
+import {
+  getAbradiaStations,
+  prepareAbradiaStation
 } from './abradia_api.js';
 import {
   parseMissionDestination,
@@ -40,11 +39,21 @@ import {
   getPlaylists,
   refreshLocalMusic
 } from './local_music_addon.js';
+import {
+  startMetadataFetch,
+  stopMetadataFetch,
+  hasMetadataProvider,
+  setMetadataDebug
+} from './metadata.js';
   await initLocalMusic(); // přidej await
 // === SWITCHES ===
 const FORCE_COP_MODE = process.argv.includes('--cop');   // Forces local player to be COP (sees cops, hides suspects)
 const ENABLE_DEBUG = process.argv.includes('--debug');   // Shows verbose API logs
 const ENABLE_GPS_LOGGER = process.argv.includes('--map-logger');   // GPS location logger
+const ENABLE_META_DEBUG = process.argv.includes('--meta-debug');   // Shows metadata provider debug logs
+
+// Enable metadata debug if flag is set
+if (ENABLE_META_DEBUG) setMetadataDebug(true);
 
 // === ANSI COLORS ===
 const colors = {
@@ -361,7 +370,6 @@ let currentMetadata = "";
 let currentDisplayParts = [];
 let tickerIndex = 0;
 let tickerTimer = null;
-let metadataFetchTimer = null;
 let currentProgram = null;
 let isInSimConnected = false;
 let lastNowPlayingInfo = { artist: "", song: "", fullTitle: "" }; 
@@ -698,7 +706,7 @@ function startGuiWatchdog() {
 }
 
 function forceKillMpv() {
-    if (metadataFetchTimer) { clearInterval(metadataFetchTimer); metadataFetchTimer = null; }
+    stopMetadataFetch();
     if (ipcClient) { try { ipcClient.destroy(); } catch(e){} ipcClient = null; }
     try { execSync('taskkill /F /IM mpv.exe /T', { stdio: 'ignore' }); } catch (e) {}
 }
@@ -743,7 +751,8 @@ async function playRadioStream(url, name, stationConfig = null) {
           tryConnectIpc();
       }, 100);
       
-      if (stationConfig?.provider === 'abradia' && stationConfig?.slug) startAbradiaMetadataFetch();
+      // Start unified metadata fetching if provider available (Abradia, Frekvence 1, etc.)
+      startMetadataFetch(url, handleMetadataUpdate, stationConfig);
       
       if (stationConfig?.provider === 'local' || stationConfig?.provider === 'playlist') {
             setTimeout(() => {
@@ -779,22 +788,18 @@ function changeVolume(delta) {
     broadcastRadioStatus(currentStation || 'Stopped', 'volume_change', { volume: currentVolume });
 }
 
-async function startAbradiaMetadataFetch() {
-  await fetchAbradiaMetadata();
-  metadataFetchTimer = setInterval(fetchAbradiaMetadata, 10000);
-}
-
-async function fetchAbradiaMetadata() {
-  if (!currentStationConfig?.slug) return;
-  try {
-    const nowPlaying = await getAbradiaNowPlaying(currentStationConfig.slug);
-    if (nowPlaying && nowPlaying.fullTitle !== currentMetadata) {
-      updateMetadata(nowPlaying.fullTitle, false); 
-      lastNowPlayingInfo = nowPlaying;
-      showNowPlayingOverlay(nowPlaying); 
-      broadcastRadioStatus(currentStation, 'metadata', { artist: nowPlaying.artist, song: nowPlaying.song, fullTitle: nowPlaying.fullTitle });
-    }
-  } catch (e) {}
+// Metadata callback for the unified metadata system
+function handleMetadataUpdate(nowPlaying) {
+  if (nowPlaying && nowPlaying.fullTitle !== currentMetadata) {
+    updateMetadata(nowPlaying.fullTitle, false);
+    lastNowPlayingInfo = nowPlaying;
+    showNowPlayingOverlay(nowPlaying);
+    broadcastRadioStatus(currentStation, 'metadata', {
+      artist: nowPlaying.artist,
+      song: nowPlaying.song,
+      fullTitle: nowPlaying.fullTitle
+    });
+  }
 }
 
 function tryConnectIpc(attempts = 0) {
@@ -813,7 +818,10 @@ function tryConnectIpc(attempts = 0) {
                 try {
                     const msg = JSON.parse(l);
                     if (msg.event === 'property-change' && msg.name === 'media-title' && msg.data) {
-                        if (!currentStationConfig?.provider) updateMetadata(msg.data, true);
+                        // Skip ICY metadata if we have a custom provider (Abradia, Frekvence 1, etc.)
+                        const hasCustomProvider = currentStationConfig?.provider ||
+                                                   hasMetadataProvider(currentStationConfig?.url, currentStationConfig);
+                        if (!hasCustomProvider) updateMetadata(msg.data, true);
                     }
                 } catch(e){}
             });

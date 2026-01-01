@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LFS Turn Annotator</title>
+  <title>LFS Turn Annotator - Multi-Layer</title>
   <style>
     :root {
       --accent: #4a9eff;
@@ -12,6 +12,7 @@
       --text-main: #fff;
       --text-dim: #aaa;
       --danger: #ff4d4d;
+      --success: #4ade80;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -55,6 +56,12 @@
     .file-btn:hover { background: rgba(255,255,255,0.2); border-color: var(--accent); }
     input[type="file"] { display: none; }
 
+    /* LEFT PANEL (Layers) */
+    #left-panel {
+      top: 95px; left: 20px; bottom: 120px; width: 300px;
+      display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+    }
+
     /* RIGHT PANEL (Tools) */
     #right-panel {
       top: 95px; right: 20px; bottom: 120px; width: 280px;
@@ -65,7 +72,39 @@
       font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-dim);
       margin-bottom: 10px; cursor: pointer;
     }
-    .panel-content { overflow-y: auto; }
+    .panel-content { overflow-y: auto; max-height: 300px; }
+
+    /* LAYER ITEM */
+    .layer-item {
+      background: rgba(255,255,255,0.05); border-radius: 8px; padding: 10px;
+      margin-bottom: 8px; border: 2px solid transparent; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .layer-item:hover { background: rgba(255,255,255,0.08); }
+    .layer-item.active { border-color: var(--accent); background: rgba(74, 158, 255, 0.1); }
+    .layer-item.hidden { opacity: 0.4; }
+
+    .layer-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }
+    .layer-name { font-size: 13px; font-weight: 600; color: #fff; }
+    .layer-actions { display: flex; gap: 4px; }
+    .layer-btn {
+      background: rgba(255,255,255,0.1); border: 1px solid var(--border-glass);
+      color: #aaa; padding: 3px 8px; border-radius: 4px; font-size: 11px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .layer-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+    .layer-btn.danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+    .layer-info {
+      display: flex; gap: 12px; font-size: 11px; color: var(--text-dim);
+    }
+    .layer-color {
+      width: 12px; height: 12px; border-radius: 3px; display: inline-block;
+      margin-right: 4px; vertical-align: middle;
+    }
 
     /* CONTROLS */
     .control-group { margin-bottom: 12px; }
@@ -138,29 +177,27 @@
 
   <div id="introModal" class="modal-overlay active">
     <div class="modal-box">
-      <div class="modal-title">📝 Labeling Workflow</div>
+      <div class="modal-title">📝 Multi-Layer Workflow</div>
       <div class="step-list">
         <div class="step">
           <div class="step-num">1</div>
-          <div class="step-text">Click <span class="highlight">Load JSON</span> and select the file from GPS Logger.</div>
+          <div class="step-text">Click <span class="highlight">Add Layer</span> and load each trip recording as a separate layer.</div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
-          <div class="step-text">
-            <b>Note:</b> "Flip Y" is enabled by default to fix inverted LFS coordinates.
-          </div>
+          <div class="step-text">Each layer gets a unique color. Toggle visibility with the 👁️ button.</div>
         </div>
         <div class="step">
           <div class="step-num">3</div>
-          <div class="step-text">Select a Turn Type (click or keys <span class="highlight">1-6</span>).</div>
+          <div class="step-text">Click a layer to make it active. Only the active layer can be annotated.</div>
         </div>
         <div class="step">
           <div class="step-num">4</div>
-          <div class="step-text">Click on the path where the turn starts.</div>
+          <div class="step-text">Select a Turn Type (keys <span class="highlight">1-6</span>) and click on the path.</div>
         </div>
         <div class="step">
           <div class="step-num">5</div>
-          <div class="step-text">When finished, click <span class="highlight">Export ML Dataset</span> and send it to mxnticek.</div>
+          <div class="step-text">When finished, <span class="highlight">Export ML Dataset</span> combines all layers.</div>
         </div>
       </div>
       <button onclick="closeModal()" style="width:100%; justify-content:center; background:var(--accent); color:#000; padding:12px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Got it!</button>
@@ -170,7 +207,7 @@
   <div id="canvas-container"><canvas id="canvas"></canvas></div>
 
   <nav id="top-bar" class="glass-panel">
-    <div class="brand">📝 Turn Annotator</div>
+    <div class="brand">📝 Turn Annotator - Multi-Layer</div>
     <div style="display: flex; gap: 10px;">
       <select id="trackSelect" class="file-btn" style="background: rgba(255,255,255,0.05);">
         <option value="">Select Track...</option>
@@ -180,16 +217,29 @@
         <option value="WE">Westhill</option>
       </select>
       <label class="file-btn">
-        📂 Load JSON
+        ➕ Add Layer
         <input type="file" id="fileInput" accept=".json">
       </label>
       <button onclick="document.getElementById('introModal').classList.add('active')" class="file-btn" style="width: 35px; justify-content:center;">?</button>
     </div>
   </nav>
 
+  <!-- LEFT PANEL: LAYERS -->
+  <div id="left-panel">
+    <div class="glass-panel panel-section" style="flex: 1;">
+      <div class="panel-header">🗂️ LAYERS (<span id="layerCount">0</span>)</div>
+      <div class="panel-content" id="layerList">
+        <div style="padding:20px; text-align:center; color: var(--text-dim); font-size: 12px;">
+          Click "Add Layer" to load trip recordings
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: TOOLS -->
   <div id="right-panel">
     <div class="glass-panel panel-section">
-      <div class="panel-header">🛠️ Alignment</div>
+      <div class="panel-header">🛠️ ALIGNMENT (Active Layer)</div>
       <div class="panel-content">
         <div class="control-group">
           <div class="control-lbl"><span>X Offset</span><span id="offsetXVal">0</span></div>
@@ -209,135 +259,233 @@
         </div>
         <label class="checkbox-wrap">
           <input type="checkbox" id="flipY" checked>
-          Flip Y (Fixes LFS coords)
+          <span>Flip Y-axis</span>
         </label>
-        
-        <button onclick="resetAlign()" class="file-btn" style="width:100%; justify-content:center;">Reset</button>
+        <button onclick="resetAlign()" class="file-btn" style="width:100%; justify-content:center; background: rgba(255,77,77,0.2);">Reset</button>
       </div>
     </div>
 
     <div class="glass-panel panel-section">
-      <div class="panel-header">📊 Stats</div>
-      <div style="font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 5px;">
-        <span style="color:#aaa">Points:</span> <span id="ptCount" style="color:#fff">0</span>
-      </div>
-      <div style="font-size: 13px; display: flex; justify-content: space-between;">
-        <span style="color:#aaa">Labels:</span> <span id="lblCount" style="color:var(--accent)">0</span>
+      <div class="panel-header">📊 STATS</div>
+      <div class="panel-content" style="font-size: 12px; display: flex; flex-direction: column; gap: 8px;">
+        <div>Active Layer Points: <b id="ptCount">0</b></div>
+        <div>Total Annotations: <b id="lblCount">0</b></div>
       </div>
     </div>
-    
-    <div class="glass-panel panel-section" style="flex:1;">
-      <div class="panel-header">Labels List</div>
-      <div id="annList" class="panel-content" style="font-size: 12px; color: #666; text-align: center;">
-        No labels yet
+
+    <div class="glass-panel panel-section" style="flex: 1;">
+      <div class="panel-header">🏷️ ANNOTATIONS (Active Layer)</div>
+      <div class="panel-content" id="annList">
+        <div style="padding:10px; text-align:center; color: var(--text-dim);">Empty</div>
       </div>
     </div>
   </div>
 
-  <div id="bottom-hud">
-    <div style="background:rgba(0,0,0,0.5); padding: 4px 10px; border-radius: 10px; font-size: 12px; color: #aaa;">
-      Select type & click path
-    </div>
-    <div class="glass-panel turn-selector">
-      <button class="turn-btn" data-type="slight_left">↖️<small>Slight</small></button>
-      <button class="turn-btn selected" data-type="left">⬅️<small>Left</small></button>
-      <button class="turn-btn" data-type="sharp_left">↩️<small>Sharp</small></button>
-      <div style="width:1px; background:rgba(255,255,255,0.1); margin:0 4px;"></div>
-      <button class="turn-btn" data-type="slight_right">↗️<small>Slight</small></button>
-      <button class="turn-btn" data-type="right">➡️<small>Right</small></button>
-      <button class="turn-btn" data-type="sharp_right">↪️<small>Sharp</small></button>
+  <!-- BOTTOM HUD -->
+  <div id="bottom-hud" class="glass-panel">
+    <div class="turn-selector">
+      <button class="turn-btn" data-type="slight_left">↖️<small>1</small></button>
+      <button class="turn-btn" data-type="left">⬅️<small>2</small></button>
+      <button class="turn-btn" data-type="sharp_left">↩️<small>3</small></button>
+      <button class="turn-btn" data-type="slight_right">↗️<small>4</small></button>
+      <button class="turn-btn" data-type="right">➡️<small>5</small></button>
+      <button class="turn-btn" data-type="sharp_right">↪️<small>6</small></button>
     </div>
   </div>
 
+  <!-- FAB BUTTONS -->
   <div id="fab-container">
-    <button class="fab primary" onclick="exportDataset()" title="Export ML Dataset">📦</button>
-    <button class="fab" onclick="clearAll()" style="color:var(--danger)" title="Clear All">🗑️</button>
+    <button class="fab primary" onclick="exportDataset()" title="Export ML Dataset">💾</button>
+    <button class="fab" onclick="clearAll()" title="Clear All Annotations">🗑️</button>
   </div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    
-    // State
+
+    const LAYER_COLORS = [
+      '#4a9eff', '#22c55e', '#f59e0b', '#ec4899', 
+      '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4'
+    ];
+
     const state = {
-      path: [],
-      annotations: [],
-      selectedType: 'left',
-      // LAZY FIX: flipY is true by default
-      transform: { x: 0, y: 0, s: 1, r: 0, flipY: true },
-      camera: { x: 0, y: 0, z: 0.8 },
+      layers: [],
+      activeLayerIndex: null,
+      selectedType: null,
+      camera: { x: 400, y: 300, z: 1 },
       isDragging: false,
-      lastMouse: { x:0, y:0 }
+      lastMouse: { x: 0, y: 0 }
     };
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      render();
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
     function closeModal() {
       document.getElementById('introModal').classList.remove('active');
     }
 
-    // Init
-    resize();
-    window.addEventListener('resize', resize);
-    
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      state.camera.x = canvas.width/2; 
-      state.camera.y = canvas.height/2;
-      render();
-    }
-
-    // Load JSON
+    // ADD LAYER
     document.getElementById('fileInput').addEventListener('change', e => {
       const file = e.target.files[0];
-      if(!file) return;
+      if (!file) return;
+      
       const reader = new FileReader();
       reader.onload = ev => {
         try {
-          const json = JSON.parse(ev.target.result);
-          if(Array.isArray(json)) state.path = json;
-          else if(json.path) state.path = json.path;
-          else throw new Error("Invalid format");
+          const data = JSON.parse(ev.target.result);
+          const path = data.map(p => ({ x: p.x, y: p.y }));
           
-          if(json.track) document.getElementById('trackSelect').value = json.track;
+          const newLayer = {
+            id: Date.now(),
+            name: file.name.replace('.json', ''),
+            path: path,
+            annotations: [],
+            visible: true,
+            color: LAYER_COLORS[state.layers.length % LAYER_COLORS.length],
+            transform: { x: 0, y: 0, s: 1, r: 0, flipY: true }
+          };
           
-          state.annotations = [];
+          state.layers.push(newLayer);
+          state.activeLayerIndex = state.layers.length - 1;
+          
+          updateLayerList();
+          updateAlignmentUI();
           updateUI();
           render();
-        } catch(err) { alert("Error loading JSON"); }
+        } catch(err) { alert("Error loading JSON: " + err.message); }
       };
       reader.readAsText(file);
+      e.target.value = ''; // Reset file input
     });
 
-    // Alignment Controls
+    // UPDATE LAYER LIST
+    function updateLayerList() {
+      const container = document.getElementById('layerList');
+      document.getElementById('layerCount').textContent = state.layers.length;
+      
+      if (state.layers.length === 0) {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color: var(--text-dim); font-size: 12px;">Click "Add Layer" to load trip recordings</div>';
+        return;
+      }
+      
+      container.innerHTML = '';
+      state.layers.forEach((layer, index) => {
+        const isActive = index === state.activeLayerIndex;
+        const el = document.createElement('div');
+        el.className = `layer-item ${isActive ? 'active' : ''} ${!layer.visible ? 'hidden' : ''}`;
+        el.innerHTML = `
+          <div class="layer-header">
+            <div class="layer-name">
+              <span class="layer-color" style="background: ${layer.color}"></span>
+              ${layer.name}
+            </div>
+            <div class="layer-actions">
+              <button class="layer-btn" onclick="toggleLayerVisibility(${index}); event.stopPropagation();">
+                ${layer.visible ? '👁️' : '🚫'}
+              </button>
+              <button class="layer-btn danger" onclick="deleteLayer(${index}); event.stopPropagation();">✕</button>
+            </div>
+          </div>
+          <div class="layer-info">
+            <span>📍 ${layer.path.length} pts</span>
+            <span>🏷️ ${layer.annotations.length} labels</span>
+          </div>
+        `;
+        el.onclick = () => setActiveLayer(index);
+        container.appendChild(el);
+      });
+    }
+
+    function setActiveLayer(index) {
+      state.activeLayerIndex = index;
+      updateLayerList();
+      updateAlignmentUI();
+      updateUI();
+      render();
+    }
+
+    function toggleLayerVisibility(index) {
+      state.layers[index].visible = !state.layers[index].visible;
+      updateLayerList();
+      render();
+    }
+
+    function deleteLayer(index) {
+      if (!confirm(`Delete layer "${state.layers[index].name}"?`)) return;
+      state.layers.splice(index, 1);
+      if (state.activeLayerIndex >= state.layers.length) {
+        state.activeLayerIndex = state.layers.length - 1;
+      }
+      updateLayerList();
+      updateAlignmentUI();
+      updateUI();
+      render();
+    }
+
+    // UPDATE ALIGNMENT UI
+    function updateAlignmentUI() {
+      const layer = state.layers[state.activeLayerIndex];
+      if (!layer) {
+        document.getElementById('offsetX').value = 0;
+        document.getElementById('offsetY').value = 0;
+        document.getElementById('scale').value = 1;
+        document.getElementById('rotation').value = 0;
+        document.getElementById('flipY').checked = true;
+        document.getElementById('offsetXVal').textContent = '0';
+        document.getElementById('offsetYVal').textContent = '0';
+        document.getElementById('scaleVal').textContent = '1.0';
+        document.getElementById('rotationVal').textContent = '0°';
+        return;
+      }
+      
+      document.getElementById('offsetX').value = layer.transform.x;
+      document.getElementById('offsetY').value = layer.transform.y;
+      document.getElementById('scale').value = layer.transform.s;
+      document.getElementById('rotation').value = layer.transform.r;
+      document.getElementById('flipY').checked = layer.transform.flipY;
+      document.getElementById('offsetXVal').textContent = layer.transform.x;
+      document.getElementById('offsetYVal').textContent = layer.transform.y;
+      document.getElementById('scaleVal').textContent = layer.transform.s;
+      document.getElementById('rotationVal').textContent = layer.transform.r + '°';
+    }
+
+    // ALIGNMENT CONTROLS
     ['offsetX', 'offsetY', 'scale', 'rotation'].forEach(id => {
       document.getElementById(id).addEventListener('input', e => {
+        const layer = state.layers[state.activeLayerIndex];
+        if (!layer) return;
+        
         const val = parseFloat(e.target.value);
-        if(id === 'offsetX') state.transform.x = val;
-        if(id === 'offsetY') state.transform.y = val;
-        if(id === 'scale') state.transform.s = val;
-        if(id === 'rotation') state.transform.r = val;
+        if(id === 'offsetX') layer.transform.x = val;
+        if(id === 'offsetY') layer.transform.y = val;
+        if(id === 'scale') layer.transform.s = val;
+        if(id === 'rotation') layer.transform.r = val;
         document.getElementById(id+'Val').textContent = val + (id==='rotation'?'°':'');
         render();
       });
     });
 
-    // Flip Y Listener
     document.getElementById('flipY').addEventListener('change', e => {
-      state.transform.flipY = e.target.checked;
+      const layer = state.layers[state.activeLayerIndex];
+      if (!layer) return;
+      layer.transform.flipY = e.target.checked;
       render();
     });
 
     window.resetAlign = () => {
-      state.transform = { x:0, y:0, s:1, r:0, flipY: true }; // Reset to True
-      document.getElementById('offsetX').value = 0;
-      document.getElementById('offsetY').value = 0;
-      document.getElementById('scale').value = 1;
-      document.getElementById('rotation').value = 0;
-      document.getElementById('flipY').checked = true;
+      const layer = state.layers[state.activeLayerIndex];
+      if (!layer) return;
+      layer.transform = { x:0, y:0, s:1, r:0, flipY: true };
+      updateAlignmentUI();
       render();
     };
 
-    // Interaction
+    // INTERACTION
     canvas.addEventListener('mousedown', e => {
       state.isDragging = false;
       state.lastMouse = { x: e.clientX, y: e.clientY };
@@ -357,26 +505,47 @@
       render();
     });
 
-    // Labeling
+    // LABELING
     canvas.addEventListener('click', e => {
-      if(state.isDragging || state.path.length === 0) return;
+      if (state.isDragging) return;
+      const layer = state.layers[state.activeLayerIndex];
+      if (!layer || !layer.visible || layer.path.length === 0 || !state.selectedType) return;
       
-      // In a real app, calculate world coordinates from click
-      // click -> screen-space -> world-space -> find nearest path point
-      // For simplicity here, we assume user clicks near the line, but we just simulate finding index
-      const idx = Math.floor(Math.random() * state.path.length); 
+      // Convert screen coords to world coords
+      const rect = canvas.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
       
-      state.annotations.push({
-        type: state.selectedType,
-        index: idx,
-        point: state.path[idx]
+      const worldX = (screenX - state.camera.x) / state.camera.z;
+      const worldY = (screenY - state.camera.y) / state.camera.z;
+      
+      // Find nearest point on path
+      let nearestIdx = 0;
+      let minDist = Infinity;
+      layer.path.forEach((p, i) => {
+        const transformed = applyTransform(p, layer.transform);
+        const dist = Math.hypot(transformed.x - worldX, transformed.y - worldY);
+        if (dist < minDist) {
+          minDist = dist;
+          nearestIdx = i;
+        }
       });
-      state.annotations.sort((a,b) => a.index - b.index);
-      updateUI();
-      render();
+      
+      // Only add if click is close enough (within 30px in screen space)
+      if (minDist * state.camera.z < 30) {
+        layer.annotations.push({
+          type: state.selectedType,
+          index: nearestIdx,
+          point: layer.path[nearestIdx]
+        });
+        layer.annotations.sort((a,b) => a.index - b.index);
+        updateLayerList();
+        updateUI();
+        render();
+      }
     });
 
-    // Keyboard Hotkeys
+    // KEYBOARD HOTKEYS
     document.addEventListener('keydown', e => {
       const map = {'1':'slight_left', '2':'left', '3':'sharp_left', '4':'slight_right', '5':'right', '6':'sharp_right'};
       if(map[e.key]) {
@@ -384,7 +553,7 @@
       }
     });
 
-    // Select Turn
+    // SELECT TURN
     document.querySelectorAll('.turn-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.turn-btn').forEach(b => b.classList.remove('selected'));
@@ -393,10 +562,12 @@
       });
     });
 
+    // RENDER
     function render() {
       ctx.fillStyle = '#111';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      // Grid
       ctx.strokeStyle = '#222';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -408,52 +579,64 @@
       ctx.translate(state.camera.x, state.camera.y);
       ctx.scale(state.camera.z, state.camera.z);
 
-      if(state.path.length > 0) {
-        ctx.strokeStyle = '#4a9eff';
-        ctx.lineWidth = 3 / state.camera.z;
-        ctx.beginPath();
-        state.path.forEach((p, i) => {
-          const pt = applyTransform(p);
-          if(i===0) ctx.moveTo(pt.x, pt.y);
-          else ctx.lineTo(pt.x, pt.y);
-        });
-        ctx.stroke();
-
-        state.annotations.forEach(ann => {
-          const pt = applyTransform(ann.point);
-          ctx.fillStyle = '#ff0';
+      // Draw all visible layers
+      state.layers.forEach((layer, index) => {
+        if (!layer.visible) return;
+        
+        const isActive = index === state.activeLayerIndex;
+        const opacity = isActive ? 1 : 0.3;
+        
+        // Draw path
+        if (layer.path.length > 0) {
+          ctx.globalAlpha = opacity;
+          ctx.strokeStyle = layer.color;
+          ctx.lineWidth = (isActive ? 3 : 2) / state.camera.z;
           ctx.beginPath();
-          ctx.arc(pt.x, pt.y, 6/state.camera.z, 0, Math.PI*2);
-          ctx.fill();
-          
-          ctx.fillStyle = '#fff';
-          ctx.font = `${14/state.camera.z}px Arial`;
-          ctx.fillText(getIcon(ann.type), pt.x + 10, pt.y);
-        });
-      }
+          layer.path.forEach((p, i) => {
+            const pt = applyTransform(p, layer.transform);
+            if(i===0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          });
+          ctx.stroke();
+
+          // Draw annotations
+          layer.annotations.forEach(ann => {
+            const pt = applyTransform(ann.point, layer.transform);
+            ctx.fillStyle = '#ff0';
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 6/state.camera.z, 0, Math.PI*2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = `${14/state.camera.z}px Arial`;
+            ctx.fillText(getIcon(ann.type), pt.x + 10, pt.y);
+          });
+          ctx.globalAlpha = 1;
+        }
+      });
+
       ctx.restore();
     }
 
-    function applyTransform(p) {
-      // Logic: apply flip, then scale, then rotate, then translate
+    function applyTransform(p, transform) {
       let x = p.x;
       let y = p.y;
       
-      if(state.transform.flipY) y = -y;
+      if(transform.flipY) y = -y;
       
-      x *= state.transform.s;
-      y *= state.transform.s;
+      x *= transform.s;
+      y *= transform.s;
       
-      if(state.transform.r !== 0) {
-        const rad = state.transform.r * Math.PI / 180;
+      if(transform.r !== 0) {
+        const rad = transform.r * Math.PI / 180;
         const c = Math.cos(rad), s = Math.sin(rad);
         const nx = x*c - y*s;
         const ny = x*s + y*c;
         x = nx; y = ny;
       }
       
-      x += state.transform.x;
-      y += state.transform.y;
+      x += transform.x;
+      y += transform.y;
       
       return {x, y};
     }
@@ -464,20 +647,35 @@
     }
 
     function updateUI() {
-      document.getElementById('ptCount').textContent = state.path.length;
-      document.getElementById('lblCount').textContent = state.annotations.length;
+      const layer = state.layers[state.activeLayerIndex];
       
+      if (!layer) {
+        document.getElementById('ptCount').textContent = 0;
+        document.getElementById('lblCount').textContent = 0;
+        document.getElementById('annList').innerHTML = '<div style="padding:10px; text-align:center; color: var(--text-dim);">Empty</div>';
+        return;
+      }
+      
+      document.getElementById('ptCount').textContent = layer.path.length;
+      
+      // Total annotations across all layers
+      const totalAnnotations = state.layers.reduce((sum, l) => sum + l.annotations.length, 0);
+      document.getElementById('lblCount').textContent = totalAnnotations;
+      
+      // Show annotations for active layer only
       const list = document.getElementById('annList');
-      if(state.annotations.length === 0) list.innerHTML = '<div style="padding:10px; text-align:center;">Empty</div>';
-      else {
+      if(layer.annotations.length === 0) {
+        list.innerHTML = '<div style="padding:10px; text-align:center; color: var(--text-dim);">Empty</div>';
+      } else {
         list.innerHTML = '';
-        state.annotations.forEach((ann, i) => {
+        layer.annotations.forEach((ann, i) => {
           const el = document.createElement('div');
           el.className = 'annotation-item';
           el.innerHTML = `<span>${getIcon(ann.type)} <small>Idx: ${ann.index}</small></span> <button class="del-btn">✕</button>`;
           el.querySelector('button').onclick = (e) => {
              e.stopPropagation();
-             state.annotations.splice(i, 1);
+             layer.annotations.splice(i, 1);
+             updateLayerList();
              updateUI();
              render();
           };
@@ -487,24 +685,45 @@
     }
 
     window.exportDataset = () => {
-      if(state.annotations.length === 0) return alert("Nothing to export");
+      const totalAnnotations = state.layers.reduce((sum, l) => sum + l.annotations.length, 0);
+      if (totalAnnotations === 0) return alert("Nothing to export");
+      
+      const allDatasets = [];
+      state.layers.forEach(layer => {
+        layer.annotations.forEach(ann => {
+          allDatasets.push({
+            layer: layer.name,
+            input: ann.point,
+            label: ann.type,
+            index: ann.index
+          });
+        });
+      });
+      
       const data = {
-        metadata: { track: document.getElementById('trackSelect').value, timestamp: Date.now() },
-        dataset: state.annotations.map(a => ({
-          input: a.point, 
-          label: a.type
-        }))
+        metadata: { 
+          track: document.getElementById('trackSelect').value, 
+          timestamp: Date.now(),
+          layers: state.layers.map(l => ({
+            name: l.name,
+            color: l.color,
+            annotationCount: l.annotations.length
+          }))
+        },
+        dataset: allDatasets
       };
+      
       const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'ml_dataset.json';
+      a.download = 'ml_dataset_multilayer.json';
       a.click();
     };
     
     window.clearAll = () => {
-      if(confirm('Delete all labels?')) {
-        state.annotations = [];
+      if(confirm('Delete all annotations from all layers?')) {
+        state.layers.forEach(layer => layer.annotations = []);
+        updateLayerList();
         updateUI();
         render();
       }

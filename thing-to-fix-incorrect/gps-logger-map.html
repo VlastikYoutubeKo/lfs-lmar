@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LFS GPS Recorder</title>
+  <title>LFS GPS Recorder - Multi Trip</title>
   <style>
     :root {
       --accent: #4a9eff;
@@ -53,13 +53,86 @@
     /* STATS PANEL */
     #stats-panel {
       top: 100px; left: 20px;
-      width: 200px;
+      width: 220px;
       display: flex; flex-direction: column; gap: 10px;
     }
 
     .stat-row { display: flex; justify-content: space-between; align-items: baseline; }
     .stat-val { font-size: 18px; font-weight: 700; color: var(--accent); }
     .stat-lbl { font-size: 11px; color: var(--text-dim); text-transform: uppercase; }
+
+    /* TRIPS PANEL */
+    #trips-panel {
+      top: 100px; right: 20px;
+      width: 280px;
+      max-height: 60vh;
+      display: flex; flex-direction: column;
+    }
+
+    .panel-header {
+      font-size: 11px; font-weight: 800; text-transform: uppercase; 
+      color: var(--text-dim); margin-bottom: 10px;
+    }
+
+    .trips-list {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .trip-item {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-glass);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-left: 3px solid var(--accent);
+    }
+
+    .trip-item:hover {
+      background: rgba(255,255,255,0.1);
+      border-left-width: 5px;
+    }
+
+    .trip-item.current {
+      border-left-color: #ff0;
+      background: rgba(255,255,0,0.1);
+    }
+
+    .trip-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .trip-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .trip-del {
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 5px;
+    }
+
+    .trip-del:hover {
+      color: var(--danger);
+    }
+
+    .trip-info {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
 
     /* CONTROLS */
     #bottom-bar {
@@ -76,6 +149,7 @@
     }
 
     button:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
     
     #recordBtn { background: var(--accent); color: #000; border: none; width: 160px; justify-content: center; }
     #recordBtn.recording { background: var(--danger); color: #fff; animation: pulse 2s infinite; }
@@ -114,30 +188,30 @@
 
   <div id="introModal" class="modal-overlay active">
     <div class="modal-box">
-      <div class="modal-title">🔴 Recording Workflow</div>
+      <div class="modal-title">🔴 Multi-Trip Recording</div>
       <div class="step-list">
         <div class="step">
           <div class="step-num">1</div>
-          <div class="step-text">Run the <span class="highlight">LFS-LMAR Server</span> (Node.js bridge).</div>
+          <div class="step-text">Run the <span class="highlight">LFS-LMAR Server</span> (WebSocket bridge).</div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
-          <div class="step-text">Connect LFS to a <b>[TC] Server</b> (e.g., CityDriving).</div>
+          <div class="step-text">Optional: Select a <b>Player</b> to follow (or leave blank to use your own position).</div>
         </div>
         <div class="step">
           <div class="step-num">3</div>
-          <div class="step-text">Wait for the <span class="highlight" style="color:var(--success)">Green Dot</span> in top-left (WebSocket Connected).</div>
+          <div class="step-text">Click <b>REC</b> and drive your route. Click <b>STOP</b> when done.</div>
         </div>
         <div class="step">
           <div class="step-num">4</div>
-          <div class="step-text">Click <b>REC</b> and drive your desired path/turn.</div>
+          <div class="step-text">Repeat for each route (South City Station → CitiBank, then CitiBank → Town Hall, etc.)</div>
         </div>
         <div class="step">
           <div class="step-num">5</div>
-          <div class="step-text">Click <b>Save JSON</b>. This file will be used in the Annotator.</div>
+          <div class="step-text">Click <b>Export All Trips</b> to save everything in ONE JSON file.</div>
         </div>
       </div>
-      <button onclick="closeModal()" style="width:100%; justify-content:center; background:var(--accent); color:#000;">I Understand</button>
+      <button onclick="closeModal()" style="width:100%; justify-content:center; background:var(--accent); color:#000;">Let's Go!</button>
     </div>
   </div>
 
@@ -146,7 +220,7 @@
   <nav id="top-bar" class="glass-panel">
     <div class="brand">
       <div class="status-dot" id="connectionDot"></div>
-      📡 GPS Recorder
+      📡 GPS Recorder - Multi Trip
     </div>
     <div style="display: flex; gap: 10px;">
       <select id="trackSelect">
@@ -158,6 +232,9 @@
         <option value="WE">Westhill (WE)</option>
         <option value="AU">Autocross (AU)</option>
       </select>
+      <select id="playerSelect" style="min-width: 150px;">
+        <option value="">🎮 My Car</option>
+      </select>
       <button onclick="document.getElementById('introModal').classList.add('active')" style="padding: 8px 12px; font-size: 16px;">?</button>
     </div>
   </nav>
@@ -168,7 +245,7 @@
       <span class="stat-val" id="statusText" style="font-size: 14px;">Idle</span>
     </div>
     <div class="stat-row">
-      <span class="stat-lbl">Points</span>
+      <span class="stat-lbl">Current Trip</span>
       <span class="stat-val" id="pointsCount">0</span>
     </div>
     <div class="stat-row">
@@ -179,29 +256,63 @@
       <span class="stat-lbl">Speed</span>
       <span class="stat-val" id="speedVal">0 km/h</span>
     </div>
+    <div class="stat-row">
+      <span class="stat-lbl">Total Trips</span>
+      <span class="stat-val" id="tripCount">0</span>
+    </div>
+  </div>
+
+  <div id="trips-panel" class="glass-panel">
+    <div class="panel-header">📋 RECORDED TRIPS (<span id="tripCounter">0</span>)</div>
+    <div class="trips-list" id="tripsList">
+      <div style="padding:20px; text-align:center; color: var(--text-dim); font-size: 12px;">
+        No trips recorded yet
+      </div>
+    </div>
   </div>
 
   <div id="bottom-bar" class="glass-panel" style="border-radius: 40px; padding: 10px 20px;">
     <button id="recordBtn">⚫ REC</button>
-    <button id="downloadBtn" onclick="exportData()">💾 Save JSON</button>
-    <button id="clearBtn" onclick="clearPath()">🗑️ Clear</button>
+    <button id="saveBtn" onclick="saveCurrentTrip()" disabled>💾 Save Trip</button>
+    <button id="exportBtn" onclick="exportAllTrips()">📦 Export All Trips</button>
+    <button id="clearBtn" onclick="clearAllTrips()">🗑️ Clear All</button>
   </div>
 
   <script>
     // Configuration
-    const WS_URL = 'ws://localhost:8080'; 
+    const WS_URL = 'ws://localhost:3000'; 
     
     // State
     const state = {
       connected: false,
       recording: false,
-      path: [],
-      currentPos: { x: 0, y: 0, heading: 0 },
+      currentPath: [],
+      savedTrips: [],
+      cars: new Map(),
+      followingPLID: null,
+      currentPos: { x: 0, y: 0, heading: 0, speed: 0 },
       camera: { x: 0, y: 0, zoom: 1 }
     };
 
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+
+    // Load saved trips from localStorage
+    function loadSavedTrips() {
+      const saved = localStorage.getItem('lfsGpsTrips');
+      if (saved) {
+        try {
+          state.savedTrips = JSON.parse(saved);
+          updateTripsList();
+        } catch(e) {
+          console.error('Failed to load saved trips:', e);
+        }
+      }
+    }
+
+    function saveTripsToStorage() {
+      localStorage.setItem('lfsGpsTrips', JSON.stringify(state.savedTrips));
+    }
 
     function closeModal() {
       document.getElementById('introModal').classList.remove('active');
@@ -217,14 +328,15 @@
     window.dispatchEvent(new Event('resize'));
 
     // WebSocket
+    let ws;
     function connect() {
       console.log("Attempting WS connection...");
-      const ws = new WebSocket(WS_URL);
+      ws = new WebSocket(WS_URL);
       
       ws.onopen = () => {
         state.connected = true;
         document.getElementById('connectionDot').classList.add('connected');
-        console.log('Connected to LFS');
+        console.log('✅ Connected to LFS');
       };
 
       ws.onclose = () => {
@@ -236,27 +348,110 @@
       ws.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
-          // Expecting data: { x, y, z, heading, speed }
-          if (data.x !== undefined && data.y !== undefined) {
+          
+          // Handle position updates (type: 'positions' with cars array)
+          if (data.type === 'positions' && data.cars) {
+            // Update cars map
+            const validPLIDs = new Set();
+            data.cars.forEach(car => {
+              state.cars.set(car.plid, car);
+              validPLIDs.add(car.plid);
+            });
+            
+            // Remove disconnected cars
+            for (let plid of state.cars.keys()) {
+              if (!validPLIDs.has(plid)) {
+                state.cars.delete(plid);
+                if (state.followingPLID === plid) {
+                  state.followingPLID = null;
+                }
+              }
+            }
+            
+            updatePlayerSelect();
+            
+            // Get position data
+            if (state.followingPLID !== null) {
+              const followedCar = state.cars.get(state.followingPLID);
+              if (followedCar) {
+                updatePosition(followedCar);
+              }
+            }
+          }
+          // Handle single position update (type: 'position' or direct x,y data)
+          else if (data.x !== undefined && data.y !== undefined) {
             updatePosition(data);
           }
-        } catch (err) {}
+        } catch (err) {
+          console.error('WebSocket message error:', err);
+        }
       };
     }
     
-    // --- DELETE THIS CALL IF USING REAL SERVER ---
-    simulateLFS(); 
+    // Update player select dropdown
+    function updatePlayerSelect() {
+      const select = document.getElementById('playerSelect');
+      const currentValue = select.value;
+      
+      // Keep first option
+      select.innerHTML = '<option value="">🎮 My Car</option>';
+      
+      Array.from(state.cars.values()).forEach(car => {
+        const option = document.createElement('option');
+        option.value = car.plid;
+        // Strip LFS color codes
+        const cleanName = (car.name || `Player ${car.plid}`).replace(/\^[0-9xX]/g, '');
+        option.textContent = cleanName;
+        
+        if (state.followingPLID === car.plid) {
+          option.textContent = '👁️ ' + option.textContent;
+          option.selected = true;
+        }
+        
+        select.appendChild(option);
+      });
+      
+      // Reset if following player disconnected
+      if (state.followingPLID && !state.cars.has(state.followingPLID)) {
+        state.followingPLID = null;
+        select.value = '';
+      }
+    }
+
+    // Player select change
+    document.getElementById('playerSelect').addEventListener('change', (e) => {
+      const plid = parseInt(e.target.value);
+      if (plid) {
+        state.followingPLID = plid;
+        console.log(`👁️ Following player PLID: ${plid}`);
+      } else {
+        state.followingPLID = null;
+        console.log(`⏹️ Following stopped - using own position`);
+      }
+    });
+    
+    // --- COMMENT OUT THIS LINE WHEN USING REAL SERVER ---
+    //simulateLFS(); 
+    // -------------------------------------------
+    // --- UNCOMMENT THIS LINE WHEN USING REAL SERVER ---
+    connect();
     // -------------------------------------------
 
     function updatePosition(data) {
-      state.currentPos = data;
+      state.currentPos = {
+        x: data.x,
+        y: data.y,
+        heading: data.heading || 0,
+        speed: data.speed || 0
+      };
+      
       document.getElementById('speedVal').textContent = Math.round((data.speed || 0) * 3.6) + ' km/h';
 
       if (state.recording) {
-        const last = state.path[state.path.length - 1];
+        const last = state.currentPath[state.currentPath.length - 1];
         // Record point if moved more than 1 meter
         if (!last || Math.hypot(data.x - last.x, data.y - last.y) > 1) {
-          state.path.push({
+          state.currentPath.push({
             x: data.x,
             y: data.y,
             z: data.z || 0,
@@ -271,51 +466,168 @@
 
     // Controls
     const recBtn = document.getElementById('recordBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    
     recBtn.addEventListener('click', () => {
       state.recording = !state.recording;
       if (state.recording) {
+        // Start recording
+        state.currentPath = [];
         recBtn.classList.add('recording');
         recBtn.innerHTML = '⏹ STOP';
+        saveBtn.disabled = true;
         document.getElementById('statusText').textContent = 'Recording...';
         document.getElementById('statusText').style.color = '#ff4d4d';
+        console.log('🔴 Recording STARTED');
       } else {
+        // Stop recording
         recBtn.classList.remove('recording');
         recBtn.innerHTML = '⚫ REC';
-        document.getElementById('statusText').textContent = 'Paused';
+        saveBtn.disabled = state.currentPath.length < 10;
+        document.getElementById('statusText').textContent = 'Stopped';
         document.getElementById('statusText').style.color = '#fff';
+        console.log('⏹ Recording STOPPED');
       }
     });
 
     function updateStats() {
-      document.getElementById('pointsCount').textContent = state.path.length;
+      document.getElementById('pointsCount').textContent = state.currentPath.length;
       let dist = 0;
-      for(let i=1; i<state.path.length; i++) {
-        dist += Math.hypot(state.path[i].x - state.path[i-1].x, state.path[i].y - state.path[i-1].y);
+      for(let i=1; i<state.currentPath.length; i++) {
+        dist += Math.hypot(state.currentPath[i].x - state.currentPath[i-1].x, state.currentPath[i].y - state.currentPath[i-1].y);
       }
       document.getElementById('distCount').textContent = Math.round(dist) + 'm';
     }
 
-    window.exportData = () => {
-      if (state.path.length === 0) return alert('No path recorded!');
-      
-      const exportObj = {
+    window.saveCurrentTrip = () => {
+      if (state.currentPath.length < 10) {
+        alert('Trip too short! Drive at least 10 meters.');
+        return;
+      }
+
+      const tripName = prompt('Enter trip name (e.g., "South City Station to CitiBank"):', 
+                               `Trip ${state.savedTrips.length + 1}`);
+      if (!tripName) return;
+
+      const trip = {
+        id: Date.now(),
+        name: tripName,
         track: document.getElementById('trackSelect').value,
-        recordedAt: new Date().toISOString(),
-        path: state.path
+        timestamp: new Date().toISOString(),
+        points: state.currentPath,
+        distance: calculateDistance(state.currentPath),
+        duration: (state.currentPath[state.currentPath.length - 1].timestamp - state.currentPath[0].timestamp) / 1000,
+        avgSpeed: calculateAvgSpeed(state.currentPath)
       };
 
-      const blob = new Blob([JSON.stringify(exportObj, null, 2)], {type: 'application/json'});
+      state.savedTrips.push(trip);
+      saveTripsToStorage();
+      updateTripsList();
+      
+      // Clear current path and prepare for next recording
+      state.currentPath = [];
+      saveBtn.disabled = true;
+      updateStats();
+      
+      console.log(`✅ Trip saved: "${tripName}" - ${trip.points.length} points, ${Math.round(trip.distance)}m`);
+    };
+
+    function calculateDistance(points) {
+      let dist = 0;
+      for (let i = 1; i < points.length; i++) {
+        dist += Math.hypot(points[i].x - points[i-1].x, points[i].y - points[i-1].y);
+      }
+      return dist;
+    }
+
+    function calculateAvgSpeed(points) {
+      if (points.length === 0) return 0;
+      const sum = points.reduce((acc, p) => acc + (p.speed || 0), 0);
+      return sum / points.length;
+    }
+
+    function updateTripsList() {
+      const container = document.getElementById('tripsList');
+      const counter = document.getElementById('tripCounter');
+      const tripCount = document.getElementById('tripCount');
+      
+      counter.textContent = state.savedTrips.length;
+      tripCount.textContent = state.savedTrips.length;
+      
+      if (state.savedTrips.length === 0) {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color: var(--text-dim); font-size: 12px;">No trips recorded yet</div>';
+        return;
+      }
+      
+      container.innerHTML = '';
+      state.savedTrips.forEach((trip, idx) => {
+        const el = document.createElement('div');
+        el.className = 'trip-item';
+        const date = new Date(trip.timestamp).toLocaleTimeString();
+        el.innerHTML = `
+          <div class="trip-header">
+            <div class="trip-name">${trip.name}</div>
+            <button class="trip-del" onclick="deleteTrip(${idx}); event.stopPropagation();">✕</button>
+          </div>
+          <div class="trip-info">
+            <span>📍 ${trip.points.length} pts</span>
+            <span>📏 ${Math.round(trip.distance)}m</span>
+            <span>⏱️ ${Math.round(trip.duration)}s</span>
+          </div>
+        `;
+        container.appendChild(el);
+      });
+    }
+
+    window.deleteTrip = (index) => {
+      if (confirm(`Delete trip "${state.savedTrips[index].name}"?`)) {
+        state.savedTrips.splice(index, 1);
+        saveTripsToStorage();
+        updateTripsList();
+      }
+    };
+
+    window.exportAllTrips = () => {
+      if (state.savedTrips.length === 0) {
+        alert('No trips to export! Record at least one trip first.');
+        return;
+      }
+      
+      const exportData = {
+        track: document.getElementById('trackSelect').value,
+        exportedAt: new Date().toISOString(),
+        totalTrips: state.savedTrips.length,
+        trips: state.savedTrips.map(trip => ({
+          name: trip.name,
+          timestamp: trip.timestamp,
+          distance: trip.distance,
+          duration: trip.duration,
+          avgSpeed: trip.avgSpeed,
+          points: trip.points
+        }))
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `lfs_path_${exportObj.track}_${Date.now()}.json`;
+      const trackCode = document.getElementById('trackSelect').value;
+      a.download = `lfs_multitrip_${trackCode}_${Date.now()}.json`;
       a.click();
+      URL.revokeObjectURL(url);
+      
+      console.log(`✅ Exported ${state.savedTrips.length} trips in one JSON file`);
     };
 
-    window.clearPath = () => {
-      if(confirm('Clear current path?')) {
-        state.path = [];
+    window.clearAllTrips = () => {
+      if (state.savedTrips.length === 0) return;
+      if(confirm(`Clear all ${state.savedTrips.length} recorded trips?`)) {
+        state.savedTrips = [];
+        state.currentPath = [];
+        saveTripsToStorage();
+        updateTripsList();
         updateStats();
+        console.log('🗑️ All trips cleared');
       }
     };
 
@@ -324,6 +636,7 @@
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      // Grid
       ctx.strokeStyle = '#151515';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -341,17 +654,42 @@
       // Center camera on car
       ctx.translate(-carX, -carY);
 
-      // Draw Path
-      if (state.path.length > 0) {
-        ctx.strokeStyle = '#4a9eff';
+      // Draw saved trips (dimmed)
+      if (state.savedTrips.length > 0) {
+        ctx.globalAlpha = 0.3;
+        state.savedTrips.forEach(trip => {
+          ctx.strokeStyle = '#4a9eff';
+          ctx.lineWidth = 3;
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+          trip.points.forEach((p, i) => {
+            if (i===0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          ctx.stroke();
+        });
+        ctx.globalAlpha = 1;
+      }
+
+      // Draw current path (bright yellow)
+      if (state.currentPath.length > 0) {
+        ctx.strokeStyle = '#ff0';
         ctx.lineWidth = 4;
         ctx.lineJoin = 'round';
         ctx.beginPath();
-        state.path.forEach((p, i) => {
+        state.currentPath.forEach((p, i) => {
           if (i===0) ctx.moveTo(p.x, p.y);
           else ctx.lineTo(p.x, p.y);
         });
         ctx.stroke();
+
+        // Points on current path
+        ctx.fillStyle = '#f00';
+        state.currentPath.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        });
       }
 
       // Draw Car
@@ -371,19 +709,17 @@
       requestAnimationFrame(render);
     }
     
-    connect();
     render();
+    loadSavedTrips();
 
-    // Simulation for UI testing
+    // Simulation for UI testing (REMOVE WHEN USING REAL SERVER)
     function simulateLFS() {
       let x = 0, y = 0, h = 0;
       setInterval(() => {
-        if(state.recording) {
-          h += (Math.random() - 0.5) * 5;
-          x += Math.cos(h * Math.PI/180) * 3;
-          y += Math.sin(h * Math.PI/180) * 3;
-          updatePosition({ x, y, heading: h, speed: 15 });
-        }
+        h += (Math.random() - 0.5) * 5;
+        x += Math.cos(h * Math.PI/180) * 3;
+        y += Math.sin(h * Math.PI/180) * 3;
+        updatePosition({ x, y, heading: h, speed: 15 + Math.random() * 10 });
       }, 50);
     }
   </script>
