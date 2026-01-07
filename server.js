@@ -293,11 +293,17 @@ const TRANSLATIONS = {
         BTN_SEARCH: "SEARCH",
         BTN_LOCAL_MUSIC: "LOCAL MUSIC",
         BTN_PLAYLISTS: "PLAYLISTS",
+        BTN_SPOTIFY: "SPOTIFY",
         BTN_LANG: "LANG: ENGLISH",
         STATUS_STOPPED: "^1Stopped",
         BTN_STOP: "STOP",
         BTN_CLOSE: "CLOSE",
         BTN_BACK: "<< BACK",
+        SPOTIFY_NOT_CONNECTED: "^1Not Connected",
+        SPOTIFY_NO_DEVICE: "^1No Active Device",
+        SPOTIFY_PAUSED: "^3Paused",
+        SPOTIFY_ENABLE: "^2Enable",
+        SPOTIFY_DISABLE: "^1Disable",
         SEARCH_PLACEHOLDER: "^8Click to type name...",
         NO_ITEMS: "^1No items found",
         TITLE_FAV: "^3 FAVORITES",
@@ -321,11 +327,17 @@ const TRANSLATIONS = {
         BTN_SEARCH: "HLEDAT",
         BTN_LOCAL_MUSIC: "LOKÁLNÍ HUDBA",
         BTN_PLAYLISTS: "PLAYLISTY",
+        BTN_SPOTIFY: "SPOTIFY",
         BTN_LANG: "JAZYK: ČEŠTINA",
         STATUS_STOPPED: "^1Zastaveno",
         BTN_STOP: "STOP",
         BTN_CLOSE: "ZAVŘÍT",
         BTN_BACK: "<< ZPĚT",
+        SPOTIFY_NOT_CONNECTED: "^1Nepřipojeno",
+        SPOTIFY_NO_DEVICE: "^1Žádné Aktivní Zařízení",
+        SPOTIFY_PAUSED: "^3Pozastaveno",
+        SPOTIFY_ENABLE: "^2Povolit",
+        SPOTIFY_DISABLE: "^1Zakázat",
         SEARCH_PLACEHOLDER: "^8Klikni a napiš název...",
         NO_ITEMS: "^1Žádné položky",
         TITLE_FAV: "^3 OBLÍBENÉ",
@@ -1271,6 +1283,43 @@ function renderUI(ucid, requestedState, extraData = null, page = 0) {
             sendBtn(ucid, 224, L+1, T+5, 28, 5, `^2[ ^7${t('BTN_LOCAL_MUSIC')} ^2]`, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
             sendBtn(ucid, 223, L+1, T+11, 28, 5, `^6[ ^7${t('BTN_PLAYLISTS')} ^6]`, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
             sendBtn(ucid, 235, L+1, T+35, 8, 5, '^3<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+            sendBtn(ucid, 237, L+21, T+35, 8, 5, '^3>', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+        }
+        // Page 2 - Spotify
+        else if (page === 2) {
+            const spotifyConfig = getSpotifyConfig();
+
+            sendBtn(ucid, 240, L+1, T+5, 28, 5, `^5[ ^7${t('BTN_SPOTIFY')} ^5]`, ButtonStyle.ISB_DARK);
+
+            if (!spotifyConfig.enabled) {
+                sendBtn(ucid, 241, L+1, T+11, 28, 5, `^8[ Spotify Disabled ]`, ButtonStyle.ISB_DARK);
+                sendBtn(ucid, 242, L+1, T+17, 28, 5, t('SPOTIFY_ENABLE'), ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+            } else if (!spotifyConfig.hasAuth) {
+                sendBtn(ucid, 241, L+1, T+11, 28, 5, t('SPOTIFY_NOT_CONNECTED'), ButtonStyle.ISB_DARK);
+                sendBtn(ucid, 243, L+1, T+17, 28, 5, `^2Connect via Web UI`, ButtonStyle.ISB_LIGHT);
+            } else {
+                // Spotify controls - get now playing asynchronously
+                getNowPlaying().then(np => {
+                    if (np && np.track) {
+                        const trackText = `^2${np.track.substring(0, 24)}`;
+                        const artistText = `^7${np.artist.substring(0, 24)}`;
+                        sendBtn(ucid, 244, L+1, T+11, 28, 4, trackText, ButtonStyle.ISB_DARK);
+                        sendBtn(ucid, 245, L+1, T+15, 28, 4, artistText, ButtonStyle.ISB_DARK);
+                    } else {
+                        sendBtn(ucid, 244, L+1, T+11, 28, 5, t('SPOTIFY_NO_DEVICE'), ButtonStyle.ISB_DARK);
+                    }
+                });
+
+                // Playback controls
+                sendBtn(ucid, 246, L+1, T+20, 8, 5, '^3|<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+                sendBtn(ucid, 247, L+10, T+20, 10, 5, '^2▶/||', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+                sendBtn(ucid, 248, L+21, T+20, 8, 5, '^3>|', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+
+                // Disable button
+                sendBtn(ucid, 249, L+1, T+26, 28, 5, t('SPOTIFY_DISABLE'), ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+            }
+
+            sendBtn(ucid, 235, L+1, T+35, 8, 5, '^3<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         }
         else {
             if (ENABLE_DEBUG) console.log(`[DEBUG] UNKNOWN PAGE: ${page} (type: ${typeof page})`);
@@ -1556,10 +1605,10 @@ inSim.on(PacketType.ISP_BTC, async (p) => {
     else if (p.ClickID === 235 || p.ClickID === 237) {
         let list = [];
         if (state.state === 'main') {
-            // Main menu má 2 stránky (0, 1)
+            // Main menu má 3 stránky (0, 1, 2) - přidáno Spotify
             let newPage = state.page + (p.ClickID === 235 ? -1 : 1);
             if (ENABLE_DEBUG) console.log(`[DEBUG] Main pagination: clickID=${p.ClickID}, oldPage=${state.page}, newPage=${newPage}`);
-            if (newPage >= 0 && newPage <= 1) renderUI(MY_UCID, 'main', [], newPage);
+            if (newPage >= 0 && newPage <= 2) renderUI(MY_UCID, 'main', [], newPage);
         } else {
             if (state.state === 'favorites') list = radioConfig.favorites;
             else if (state.state === 'recent') list = radioConfig.recent;
@@ -1641,6 +1690,48 @@ inSim.on(PacketType.ISP_BTC, async (p) => {
         }
     }
     else if (p.ClickID === OVERLAY_CLOSE) clearNowPlayingOverlay();
+
+    // Spotify controls
+    else if (p.ClickID === 242) {
+        // Enable Spotify
+        radioConfig.spotify.enabled = true;
+        updateSpotifyConfig({ enabled: true });
+        saveConfig();
+        renderUI(MY_UCID, 'main', [], 2);
+    }
+    else if (p.ClickID === 249) {
+        // Disable Spotify
+        radioConfig.spotify.enabled = false;
+        updateSpotifyConfig({ enabled: false });
+        saveConfig();
+        renderUI(MY_UCID, 'main', [], 2);
+    }
+    else if (p.ClickID === 246) {
+        // Previous track
+        spotifyPrevious().then(() => {
+            setTimeout(() => renderUI(MY_UCID, 'main', [], 2), 500);
+        });
+    }
+    else if (p.ClickID === 247) {
+        // Play/Pause toggle
+        getNowPlaying().then(np => {
+            if (np && np.isPlaying) {
+                spotifyPause().then(() => {
+                    setTimeout(() => renderUI(MY_UCID, 'main', [], 2), 300);
+                });
+            } else {
+                spotifyPlay().then(() => {
+                    setTimeout(() => renderUI(MY_UCID, 'main', [], 2), 300);
+                });
+            }
+        });
+    }
+    else if (p.ClickID === 248) {
+        // Next track
+        spotifyNext().then(() => {
+            setTimeout(() => renderUI(MY_UCID, 'main', [], 2), 500);
+        });
+    }
 });
 
 inSim.on(PacketType.ISP_BTT, async (p) => {
