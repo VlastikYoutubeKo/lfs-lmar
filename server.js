@@ -594,13 +594,21 @@ loadConfig();
 // === SERVERS ===
 const server = http.createServer((req, res) => {
   const __dirname = dirname(fileURLToPath(import.meta.url));
+
+  // API endpoint for ML config
+  if (req.url === '/api/ml-config') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(mlConfig));
+    return;
+  }
+
   let filePath = req.url === '/' ? '/index.html' : req.url;
   if (req.url === '/radio' || req.url === '/radio.html') filePath = '/radio.html';
-  
+
   const fullPath = join(__dirname, 'public', filePath);
   const ext = String(filePath).toLowerCase().match(/\.[^.]*$/)?.[0] || '';
   const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png' }[ext] || 'application/octet-stream';
-  
+
   fs.readFile(fullPath, (err, data) => {
     if(err) { res.writeHead(404); res.end(); }
     else { res.writeHead(200, {'Content-Type': mime}); res.end(data); }

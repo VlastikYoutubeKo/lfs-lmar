@@ -1,0 +1,14 @@
+{
+  "exportedAt": "2026-01-03T19:03:25",
+  "modelType": "RandomForest",
+  "turn_detection": {
+    "min_speed": 10,
+    "angle_threshold_slight": 30,
+    "angle_threshold_normal": 60,
+    "angle_threshold_sharp": 90,
+    "curvature_window": 5,
+    "lookahead_distance": 50,
+    "min_turn_distance": 30
+  },
+  "instructions": "Optimized ML parameters for turn detection"
+}

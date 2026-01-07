@@ -887,6 +887,30 @@
       voice: { lastTurnId: null, lastTurnStage: null, lastTurnTime: 0, avgSpeed: 0 }
     };
 
+    // ===== ML CONFIG =====
+    let mlConfig = {
+      turn_detection: {
+        min_speed: 10,
+        angle_threshold_slight: 30,
+        angle_threshold_normal: 60,
+        angle_threshold_sharp: 90,
+        curvature_window: 5,
+        lookahead_distance: 50,
+        min_turn_distance: 30
+      }
+    };
+
+    // Fetch ML config from server
+    fetch('/api/ml-config')
+      .then(res => res.json())
+      .then(config => {
+        mlConfig = config;
+        console.log('✅ ML Config loaded:', mlConfig);
+      })
+      .catch(err => {
+        console.warn('⚠️ Failed to load ML config, using defaults:', err);
+      });
+
     // ===== WORKER =====
     const blob = new Blob([document.getElementById('worker-code').textContent], { type: 'text/javascript' });
     const worker = new Worker(URL.createObjectURL(blob));
@@ -1196,9 +1220,10 @@
         for (let i = 5; i < path.length - 5; i++) {
           const cumulativeDist = distances[i];
 
-          // Skip body blíž než 30m (ML optimized minTurnDistance)
-          if (cumulativeDist < 30) continue;
-          
+          // Skip body blíž než min_turn_distance (from ML config)
+          const minDist = mlConfig.turn_detection?.min_turn_distance || 30;
+          if (cumulativeDist < minDist) continue;
+
           // Skip body dál než 200m (příliš daleko na hlášení)
           if (cumulativeDist > 200) break;
           
@@ -1239,15 +1264,18 @@
           
           const angleDeg = Math.abs(angleDiff * 180 / Math.PI);
 
-          // Je to výrazná zatáčka? (ML optimized threshold: 0°)
-          if (angleDeg >= 0) {
+          // Je to výrazná zatáčka? (use ML config thresholds)
+          const slightThreshold = mlConfig.turn_detection?.angle_threshold_slight || 30;
+          const sharpThreshold = mlConfig.turn_detection?.angle_threshold_sharp || 90;
+
+          if (angleDeg >= slightThreshold) {
             const isLeft = angleDiff > 0;
             let turnType;
 
-            // ML optimized thresholds: slight=5°, sharp=110°
-            if (angleDeg < 5) {
+            // Use ML optimized thresholds from config
+            if (angleDeg < slightThreshold) {
               turnType = isLeft ? 'slight_left' : 'slight_right';
-            } else if (angleDeg < 110) {
+            } else if (angleDeg < sharpThreshold) {
               turnType = isLeft ? 'left' : 'right';
             } else {
               turnType = isLeft ? 'sharp_left' : 'sharp_right';
