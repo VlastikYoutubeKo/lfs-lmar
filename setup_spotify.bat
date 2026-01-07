@@ -108,13 +108,13 @@ echo Spotify integration is now configured!
 echo.
 echo To complete setup:
 echo 1. Start the server (it will start after this wizard)
-echo 2. Open: http://localhost:3000/radio.html
+echo 2. Open: http://127.0.0.1:3000/radio.html
 echo 3. Scroll down to the Spotify panel
 echo 4. Click "Connect to Spotify"
 echo 5. Authorize the app in the popup window
 echo.
 echo Once authenticated, you can control Spotify from:
-echo   - Web interface: http://localhost:3000/radio.html
+echo   - Web interface: http://127.0.0.1:3000/radio.html
 echo   - In-game: Radio GUI ^> Page 2 (Spotify)
 echo.
 echo ============================================================
