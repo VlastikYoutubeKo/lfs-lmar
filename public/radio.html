@@ -308,7 +308,7 @@
         <div class="design-line-right"></div>
 
         <div class="section-left">
-            <button class="btn-round-small btn-src" onclick="togglePower()">OFF<br><span style="font-size:8px; color:#aaa">SRC</span></button>
+            <button class="btn-round-small btn-src" id="powerBtn" onclick="togglePower()">OFF<br><span style="font-size:8px; color:#aaa">SRC</span></button>
             <div class="label-text pos-src"></div>
             <div class="volume-knob-container"><div class="volume-knob-inner"></div></div>
             <button class="btn-round-small" style="position: absolute; top: 40px; left: 10px;">PTY</button>
@@ -438,6 +438,7 @@
 
         function renderNowPlaying() {
             const content = document.getElementById('spotifyContent');
+            const powerBtn = document.getElementById('powerBtn');
 
             if (!spotifyState.nowPlaying || !spotifyState.nowPlaying.track) {
                 content.innerHTML = `
@@ -445,11 +446,21 @@
                         No active device. Start playing on Spotify app.
                     </div>
                 `;
+                // Reset power button to normal
+                if (powerBtn) {
+                    powerBtn.innerHTML = 'OFF<br><span style="font-size:8px; color:#aaa">SRC</span>';
+                }
                 return;
             }
 
             const np = spotifyState.nowPlaying;
             const playIcon = np.isPlaying ? '⏸' : '▶';
+
+            // Update power button to show play/pause function
+            if (powerBtn) {
+                const btnText = np.isPlaying ? '||<br><span style="font-size:8px; color:#aaa">PAUSE</span>' : '▶<br><span style="font-size:8px; color:#aaa">PLAY</span>';
+                powerBtn.innerHTML = btnText;
+            }
 
             content.innerHTML = `
                 <div class="spotify-content">
@@ -551,7 +562,7 @@
                     renderNowPlaying();
 
                     // Update LCD display with Spotify info (only update data, don't redraw if already showing same text)
-                    if (data.isPlaying && radioState.isOn) {
+                    if (data.isPlaying) {
                         const newArtist = data.artist || 'Unknown Artist';
                         const newSong = data.track || 'Unknown Track';
                         const newStation = 'SPOTIFY';
@@ -561,8 +572,17 @@
                             radioState.artist = newArtist;
                             radioState.song = newSong;
                             radioState.station = newStation;
-                            updateDisplayByMode();
+
+                            // Start rotation if not already running
+                            if (radioState.isOn && !rotationTimer) {
+                                startRotationLogic();
+                            } else if (radioState.isOn) {
+                                updateDisplayByMode();
+                            }
                         }
+                    } else if (!data.isPlaying && radioState.station === 'SPOTIFY') {
+                        // Spotify paused - optionally clear or keep showing last track
+                        // Keep showing for now
                     }
                 } else {
                     spotifyState.nowPlaying = null;
@@ -589,6 +609,12 @@
 
         // --- POWER LOGIC ---
         function togglePower() {
+            // If Spotify is active and playing, use power button as play/pause
+            if (spotifyState.enabled && spotifyState.hasAuth && spotifyState.nowPlaying) {
+                spotifyPlayPause();
+                return;
+            }
+
             if (radioState.isOn) {
                 radioState.isOn = false;
                 stopRotationLogic();
@@ -600,10 +626,10 @@
                 setTimeout(() => {
                     if (radioState.isOn) {
                         displayOnLCD("FM RADIO", false);
-                        
-                        // Zde se ptáme serveru na aktuální stav
+
+                        // Ask server for current status
                         if(ws && ws.readyState === WebSocket.OPEN) {
-                             console.log("Power ON: Odesílám žádost o status...");
+                             console.log("Power ON: Requesting status...");
                              ws.send(JSON.stringify({ type: "get_status" }));
                         }
 
