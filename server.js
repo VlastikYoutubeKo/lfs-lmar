@@ -28,6 +28,20 @@ import {
   formatTime
 } from './tc_locations.js';
 import {
+  initSpotify,
+  getSpotifyConfig,
+  updateSpotifyConfig,
+  getSpotifyTokens,
+  getAuthUrl,
+  exchangeCodeForToken,
+  getNowPlaying,
+  play as spotifyPlay,
+  pause as spotifyPause,
+  next as spotifyNext,
+  previous as spotifyPrevious,
+  setVolume as spotifySetVolume
+} from './spotify_api.js';
+import {
   loadExistingLocations,
   processApiData,
   setupGracefulShutdown,
@@ -380,7 +394,19 @@ let overlayTickerIndex = 0;
 let overlayArtistParts = [];
 let overlaySongParts = [];
 
-let radioConfig = { favorites: [], recent: [], lang: 'en' };
+let radioConfig = {
+  favorites: [],
+  recent: [],
+  lang: 'en',
+  spotify: {
+    enabled: false,
+    clientId: '',
+    clientSecret: '',
+    accessToken: null,
+    refreshToken: null,
+    tokenExpiry: null
+  }
+};
 
 function t(key) { return TRANSLATIONS[currentLang][key] || key; }
 
@@ -389,16 +415,34 @@ function loadConfig() {
     if (fs.existsSync(CONFIG_FILE)) {
       radioConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
       if (radioConfig.lang) currentLang = radioConfig.lang;
+
+      // Initialize Spotify if configured
+      if (radioConfig.spotify) {
+        const spotifyReady = initSpotify(radioConfig);
+        if (spotifyReady) {
+          console.log(`${colors.green}[Spotify]${colors.reset} Integration enabled`);
+        } else if (radioConfig.spotify.enabled) {
+          console.log(`${colors.yellow}[Spotify]${colors.reset} Enabled but missing credentials`);
+        }
+      }
+
       console.log(`${colors.green}[Config]${colors.reset} Loaded.`);
     }
   } catch (e) { console.error(`${colors.red}[Config] Error:${colors.reset}`, e.message); }
 }
 
 function saveConfig() {
-  try { 
+  try {
       radioConfig.lang = currentLang;
-      fs.writeFileSync(CONFIG_FILE, JSON.stringify(radioConfig, null, 2), 'utf8'); 
-  } 
+
+      // Update Spotify tokens in config
+      if (radioConfig.spotify && radioConfig.spotify.enabled) {
+        const tokens = getSpotifyTokens();
+        radioConfig.spotify = { ...radioConfig.spotify, ...tokens };
+      }
+
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify(radioConfig, null, 2), 'utf8');
+  }
   catch (e) { console.error(`${colors.red}[Config] Save Error:${colors.reset}`, e.message); }
 }
 
@@ -599,6 +643,63 @@ const server = http.createServer((req, res) => {
   if (req.url === '/api/ml-config') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(mlConfig));
+    return;
+  }
+
+  // Spotify OAuth callback
+  if (req.url.startsWith('/spotify/callback')) {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const code = url.searchParams.get('code');
+    const error = url.searchParams.get('error');
+
+    if (error) {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('<h1>Spotify Authentication Failed</h1><p>You can close this window.</p>');
+      return;
+    }
+
+    if (code) {
+      exchangeCodeForToken(code)
+        .then(() => {
+          saveConfig();
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<h1>Spotify Connected!</h1><p>You can close this window and return to the app.</p>');
+        })
+        .catch(err => {
+          console.error('Spotify auth error:', err);
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<h1>Authentication Error</h1><p>' + err.message + '</p>');
+        });
+      return;
+    }
+  }
+
+  // Spotify auth start
+  if (req.url === '/spotify/auth') {
+    const authUrl = getAuthUrl();
+    res.writeHead(302, { 'Location': authUrl });
+    res.end();
+    return;
+  }
+
+  // Spotify config API
+  if (req.url === '/api/spotify/config') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getSpotifyConfig()));
+    return;
+  }
+
+  // Spotify now playing API
+  if (req.url === '/api/spotify/now-playing') {
+    getNowPlaying()
+      .then(data => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(data || {}));
+      })
+      .catch(err => {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      });
     return;
   }
 
@@ -1565,6 +1666,40 @@ wssRadio.on('connection', (ws) => {
         const msg = JSON.parse(raw);
         if (msg.type === 'change_volume') changeVolume(msg.delta);
         if (msg.type === 'get_status') ws.send(JSON.stringify({ type: 'init', radio: { station: currentStation, volume: currentVolume, metadata: currentMetadata } }));
+
+        // Spotify controls
+        if (msg.type === 'spotify_play') {
+          spotifyPlay().then(() => ws.send(JSON.stringify({ type: 'spotify_status', playing: true })));
+        }
+        if (msg.type === 'spotify_pause') {
+          spotifyPause().then(() => ws.send(JSON.stringify({ type: 'spotify_status', playing: false })));
+        }
+        if (msg.type === 'spotify_next') {
+          spotifyNext().then(() => {
+            setTimeout(() => {
+              getNowPlaying().then(np => ws.send(JSON.stringify({ type: 'spotify_now_playing', data: np })));
+            }, 500);
+          });
+        }
+        if (msg.type === 'spotify_previous') {
+          spotifyPrevious().then(() => {
+            setTimeout(() => {
+              getNowPlaying().then(np => ws.send(JSON.stringify({ type: 'spotify_now_playing', data: np })));
+            }, 500);
+          });
+        }
+        if (msg.type === 'spotify_volume') {
+          spotifySetVolume(msg.volume);
+        }
+        if (msg.type === 'spotify_get_now_playing') {
+          getNowPlaying().then(np => ws.send(JSON.stringify({ type: 'spotify_now_playing', data: np })));
+        }
+        if (msg.type === 'spotify_toggle') {
+          radioConfig.spotify.enabled = msg.enabled;
+          updateSpotifyConfig({ enabled: msg.enabled });
+          saveConfig();
+          ws.send(JSON.stringify({ type: 'spotify_config', config: getSpotifyConfig() }));
+        }
     } catch(e){}
   });
 });

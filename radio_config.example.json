@@ -16,5 +16,13 @@
     }
   ],
   "recent": [],
-  "lang": "en"
+  "lang": "en",
+  "spotify": {
+    "enabled": false,
+    "clientId": "YOUR_SPOTIFY_CLIENT_ID_HERE",
+    "clientSecret": "YOUR_SPOTIFY_CLIENT_SECRET_HERE",
+    "accessToken": null,
+    "refreshToken": null,
+    "tokenExpiry": null
+  }
 }

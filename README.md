@@ -60,6 +60,28 @@ npm start
 3. **Volume Control:** +/- buttons
 4. **Language:** Switch between EN/CZ
 
+### 🎵 Spotify Integration (Optional):
+
+Control your Spotify playback directly from the radio interface and in-game!
+
+**Setup:**
+1. See **`readme_spotify.txt`** for full setup instructions
+2. Create a free Spotify Developer app at https://developer.spotify.com/dashboard
+3. Add your Client ID and Client Secret to `radio_config.json`
+4. Enable Spotify integration and authenticate via the radio web interface
+
+**Features:**
+- Play/Pause control
+- Next/Previous track
+- Volume control
+- Real-time "Now Playing" display with album artwork
+- Works both in web interface and InSim GUI
+- Optional - can be enabled/disabled with a toggle switch
+
+**Requirements:**
+- Spotify Premium account (required for Web API playback control)
+- Active Spotify device (desktop app, mobile, or web player)
+
 ### Web Map:
 
 * **Zoom:** Mouse wheel or +/- buttons
