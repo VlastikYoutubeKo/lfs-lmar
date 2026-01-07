@@ -398,13 +398,15 @@ let tickerIndex = 0;
 let tickerTimer = null;
 let currentProgram = null;
 let isInSimConnected = false;
-let lastNowPlayingInfo = { artist: "", song: "", fullTitle: "" }; 
+let lastNowPlayingInfo = { artist: "", song: "", fullTitle: "" };
 let isOverlayVisible = false;
 let currentLang = 'en';
 let overlayTickerTimer = null;
 let overlayTickerIndex = 0;
 let overlayArtistParts = [];
 let overlaySongParts = [];
+let spotifyPollingInterval = null;
+let lastSpotifyTrackId = null;
 
 let radioConfig = {
   favorites: [],
@@ -674,6 +676,12 @@ const server = http.createServer((req, res) => {
       exchangeCodeForToken(code)
         .then(() => {
           saveConfig();
+
+          // Start Spotify polling now that auth is complete
+          if (isInSimConnected) {
+            startSpotifyPolling();
+          }
+
           res.writeHead(200, { 'Content-Type': 'text/html' });
           res.end('<h1>Spotify Connected!</h1><p>You can close this window and return to the app.</p>');
         })
@@ -1216,6 +1224,79 @@ function clearNowPlayingOverlay() {
     }
 }
 
+// Spotify now playing integration
+async function checkSpotifyNowPlaying() {
+    const spotifyConfig = getSpotifyConfig();
+    if (!spotifyConfig.enabled || !spotifyConfig.hasAuth) return;
+
+    try {
+        const np = await getNowPlaying();
+
+        if (np && np.track && np.isPlaying) {
+            // Create unique ID from track URI or name+artist
+            const trackId = `${np.track}_${np.artist}`;
+
+            // Only update if track changed or radio is not playing
+            if (trackId !== lastSpotifyTrackId || !currentStation) {
+                lastSpotifyTrackId = trackId;
+
+                // Update now playing info
+                const nowPlaying = {
+                    artist: np.artist || 'Unknown Artist',
+                    song: np.track || 'Unknown Track',
+                    fullTitle: `${np.artist || 'Unknown Artist'} - ${np.track || 'Unknown Track'}`
+                };
+
+                lastNowPlayingInfo = nowPlaying;
+
+                // Show overlay if InSim is connected
+                if (isInSimConnected) {
+                    showNowPlayingOverlay(nowPlaying);
+                }
+
+                // Broadcast to web clients
+                broadcastRadioStatus('SPOTIFY', 'metadata', {
+                    artist: nowPlaying.artist,
+                    song: nowPlaying.song,
+                    fullTitle: nowPlaying.fullTitle
+                });
+            }
+        } else if (!np || !np.isPlaying) {
+            // Spotify stopped/paused - clear if we were showing Spotify
+            if (lastSpotifyTrackId && !currentStation) {
+                lastSpotifyTrackId = null;
+                if (isInSimConnected && isOverlayVisible) {
+                    clearNowPlayingOverlay();
+                }
+            }
+        }
+    } catch (err) {
+        // Silent fail - Spotify might not be active
+    }
+}
+
+function startSpotifyPolling() {
+    if (spotifyPollingInterval) return; // Already running
+
+    const spotifyConfig = getSpotifyConfig();
+    if (!spotifyConfig.enabled || !spotifyConfig.hasAuth) return;
+
+    // Check immediately, then every 5 seconds (safer for rate limits)
+    checkSpotifyNowPlaying();
+    spotifyPollingInterval = setInterval(checkSpotifyNowPlaying, 5000);
+
+    if (ENABLE_DEBUG) console.log('[Spotify] Polling started (5s interval)');
+}
+
+function stopSpotifyPolling() {
+    if (spotifyPollingInterval) {
+        clearInterval(spotifyPollingInterval);
+        spotifyPollingInterval = null;
+        lastSpotifyTrackId = null;
+        if (ENABLE_DEBUG) console.log('[Spotify] Polling stopped');
+    }
+}
+
 function sendBtn(ucid, id, l, t, w, h, text, style, typeIn = 0) {
     if (ucid !== MY_UCID && ucid !== 255) return;
     let finalStyle = style;
@@ -1398,6 +1479,12 @@ inSim.on('connect', () => {
   MY_UCID = 255;
   playerStates.clear();
   activeChases.clear();
+
+  // Start Spotify polling if configured
+  const spotifyConfig = getSpotifyConfig();
+  if (spotifyConfig.enabled && spotifyConfig.hasAuth) {
+    startSpotifyPolling();
+  }
   
   initLocalMusic(); // přidej await
   

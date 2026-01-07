@@ -510,19 +510,33 @@
             const command = spotifyState.nowPlaying?.isPlaying ? 'spotify_pause' : 'spotify_play';
             ws.send(JSON.stringify({ type: command }));
 
-            setTimeout(updateNowPlaying, 500);
+            // Update both Spotify panel and LCD display
+            setTimeout(() => {
+                updateNowPlaying();
+                if (radioState.isOn) updateDisplayByMode();
+            }, 500);
         }
 
         function spotifyNext() {
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
             ws.send(JSON.stringify({ type: 'spotify_next' }));
-            setTimeout(updateNowPlaying, 1000);
+
+            // Update both Spotify panel and LCD display
+            setTimeout(() => {
+                updateNowPlaying();
+                if (radioState.isOn) updateDisplayByMode();
+            }, 1000);
         }
 
         function spotifyPrevious() {
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
             ws.send(JSON.stringify({ type: 'spotify_previous' }));
-            setTimeout(updateNowPlaying, 1000);
+
+            // Update both Spotify panel and LCD display
+            setTimeout(() => {
+                updateNowPlaying();
+                if (radioState.isOn) updateDisplayByMode();
+            }, 1000);
         }
 
         async function updateNowPlaying() {
@@ -535,6 +549,14 @@
                 if (data && data.track) {
                     spotifyState.nowPlaying = data;
                     renderNowPlaying();
+
+                    // Update LCD display with Spotify info
+                    if (data.isPlaying && radioState.isOn) {
+                        radioState.artist = data.artist || 'Unknown Artist';
+                        radioState.song = data.track || 'Unknown Track';
+                        radioState.station = 'SPOTIFY';
+                        updateDisplayByMode();
+                    }
                 } else {
                     spotifyState.nowPlaying = null;
                     renderNowPlaying();
@@ -547,7 +569,8 @@
         function startSpotifyPolling() {
             stopSpotifyPolling();
             updateNowPlaying();
-            spotifyState.pollInterval = setInterval(updateNowPlaying, 3000);
+            // Poll every 5 seconds to avoid rate limiting
+            spotifyState.pollInterval = setInterval(updateNowPlaying, 5000);
         }
 
         function stopSpotifyPolling() {
