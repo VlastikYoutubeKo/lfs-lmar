@@ -1195,9 +1195,9 @@
         
         for (let i = 5; i < path.length - 5; i++) {
           const cumulativeDist = distances[i];
-          
-          // Skip body blíž než 20m (ty už pravděpodobně projedeš)
-          if (cumulativeDist < 20) continue;
+
+          // Skip body blíž než 30m (ML optimized minTurnDistance)
+          if (cumulativeDist < 30) continue;
           
           // Skip body dál než 200m (příliš daleko na hlášení)
           if (cumulativeDist > 200) break;
@@ -1238,13 +1238,14 @@
           while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
           
           const angleDeg = Math.abs(angleDiff * 180 / Math.PI);
-          
-          // Je to výrazná zatáčka? (alespoň 35°)
-          if (angleDeg >= 35) {
+
+          // Je to výrazná zatáčka? (ML optimized threshold: 0°)
+          if (angleDeg >= 0) {
             const isLeft = angleDiff > 0;
             let turnType;
-            
-            if (angleDeg < 60) {
+
+            // ML optimized thresholds: slight=5°, sharp=110°
+            if (angleDeg < 5) {
               turnType = isLeft ? 'slight_left' : 'slight_right';
             } else if (angleDeg < 110) {
               turnType = isLeft ? 'left' : 'right';
@@ -1275,20 +1276,22 @@
         });
         if (turns.length > 5) console.log(`  ... a dalších ${turns.length - 5} zatáček`);
         
-        // DETEKCE KRUHOVÉHO OBJEZDU
-        // Pokud je víc než 2 zatáčky stejného směru blízko za sebou (do 100m), je to kruhový objezd
+        // DETEKCE KRUHOVÉHO OBJEZDU - DISABLED
+        // Roundabout detection turned off per user request
         let isRoundabout = false;
+        /* DISABLED
         if (turns.length >= 3) {
           const firstThree = turns.slice(0, 3);
           const allLeft = firstThree.every(t => t.type.includes('left'));
           const allRight = firstThree.every(t => t.type.includes('right'));
           const closeTogeter = (firstThree[2].dist - firstThree[0].dist) < 100;
-          
+
           if ((allLeft || allRight) && closeTogeter) {
             isRoundabout = true;
             console.log(`🔄 ROUNDABOUT DETECTED: ${turns.length} turns in ${firstThree[2].dist.toFixed(0)}m`);
           }
         }
+        */
         
         // Vrať NEJBLIŽŠÍ zatáčku (první v pořadí)
         const nearestTurn = turns[0];
