@@ -1285,38 +1285,38 @@ function renderUI(ucid, requestedState, extraData = null, page = 0) {
             sendBtn(ucid, 235, L+1, T+35, 8, 5, '^3<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
             sendBtn(ucid, 237, L+21, T+35, 8, 5, '^3>', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
         }
-        // Page 2 - Spotify
+        // Page 2 - Spotify (using IDs 202-209, 219)
         else if (page === 2) {
             const spotifyConfig = getSpotifyConfig();
 
-            sendBtn(ucid, 240, L+1, T+5, 28, 5, `^5[ ^7${t('BTN_SPOTIFY')} ^5]`, ButtonStyle.ISB_DARK);
+            sendBtn(ucid, 202, L+1, T+5, 28, 5, `^5[ ^7${t('BTN_SPOTIFY')} ^5]`, ButtonStyle.ISB_DARK);
 
             if (!spotifyConfig.enabled) {
-                sendBtn(ucid, 241, L+1, T+11, 28, 5, `^8[ Spotify Disabled ]`, ButtonStyle.ISB_DARK);
-                sendBtn(ucid, 242, L+1, T+17, 28, 5, t('SPOTIFY_ENABLE'), ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+                sendBtn(ucid, 203, L+1, T+11, 28, 5, `^8[ Spotify Disabled ]`, ButtonStyle.ISB_DARK);
+                sendBtn(ucid, 204, L+1, T+17, 28, 5, t('SPOTIFY_ENABLE'), ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
             } else if (!spotifyConfig.hasAuth) {
-                sendBtn(ucid, 241, L+1, T+11, 28, 5, t('SPOTIFY_NOT_CONNECTED'), ButtonStyle.ISB_DARK);
-                sendBtn(ucid, 243, L+1, T+17, 28, 5, `^2Connect via Web UI`, ButtonStyle.ISB_LIGHT);
+                sendBtn(ucid, 203, L+1, T+11, 28, 5, t('SPOTIFY_NOT_CONNECTED'), ButtonStyle.ISB_DARK);
+                sendBtn(ucid, 205, L+1, T+17, 28, 5, `^2Connect via Web UI`, ButtonStyle.ISB_LIGHT);
             } else {
                 // Spotify controls - get now playing asynchronously
                 getNowPlaying().then(np => {
                     if (np && np.track) {
                         const trackText = `^2${np.track.substring(0, 24)}`;
                         const artistText = `^7${np.artist.substring(0, 24)}`;
-                        sendBtn(ucid, 244, L+1, T+11, 28, 4, trackText, ButtonStyle.ISB_DARK);
-                        sendBtn(ucid, 245, L+1, T+15, 28, 4, artistText, ButtonStyle.ISB_DARK);
+                        sendBtn(ucid, 203, L+1, T+11, 28, 4, trackText, ButtonStyle.ISB_DARK);
+                        sendBtn(ucid, 206, L+1, T+15, 28, 4, artistText, ButtonStyle.ISB_DARK);
                     } else {
-                        sendBtn(ucid, 244, L+1, T+11, 28, 5, t('SPOTIFY_NO_DEVICE'), ButtonStyle.ISB_DARK);
+                        sendBtn(ucid, 203, L+1, T+11, 28, 5, t('SPOTIFY_NO_DEVICE'), ButtonStyle.ISB_DARK);
                     }
                 });
 
                 // Playback controls
-                sendBtn(ucid, 246, L+1, T+20, 8, 5, '^3|<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
-                sendBtn(ucid, 247, L+10, T+20, 10, 5, '^2▶/||', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
-                sendBtn(ucid, 248, L+21, T+20, 8, 5, '^3>|', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+                sendBtn(ucid, 207, L+1, T+20, 8, 5, '^3|<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+                sendBtn(ucid, 208, L+10, T+20, 10, 5, '^2▶/||', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+                sendBtn(ucid, 209, L+21, T+20, 8, 5, '^3>|', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
 
                 // Disable button
-                sendBtn(ucid, 249, L+1, T+26, 28, 5, t('SPOTIFY_DISABLE'), ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+                sendBtn(ucid, 219, L+1, T+26, 28, 5, t('SPOTIFY_DISABLE'), ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
             }
 
             sendBtn(ucid, 235, L+1, T+35, 8, 5, '^3<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
@@ -1691,28 +1691,28 @@ inSim.on(PacketType.ISP_BTC, async (p) => {
     }
     else if (p.ClickID === OVERLAY_CLOSE) clearNowPlayingOverlay();
 
-    // Spotify controls
-    else if (p.ClickID === 242) {
+    // Spotify controls (IDs 202-209, 219)
+    else if (p.ClickID === 204) {
         // Enable Spotify
         radioConfig.spotify.enabled = true;
         updateSpotifyConfig({ enabled: true });
         saveConfig();
         renderUI(MY_UCID, 'main', [], 2);
     }
-    else if (p.ClickID === 249) {
+    else if (p.ClickID === 219) {
         // Disable Spotify
         radioConfig.spotify.enabled = false;
         updateSpotifyConfig({ enabled: false });
         saveConfig();
         renderUI(MY_UCID, 'main', [], 2);
     }
-    else if (p.ClickID === 246) {
+    else if (p.ClickID === 207) {
         // Previous track
         spotifyPrevious().then(() => {
             setTimeout(() => renderUI(MY_UCID, 'main', [], 2), 500);
         });
     }
-    else if (p.ClickID === 247) {
+    else if (p.ClickID === 208) {
         // Play/Pause toggle
         getNowPlaying().then(np => {
             if (np && np.isPlaying) {
@@ -1726,7 +1726,7 @@ inSim.on(PacketType.ISP_BTC, async (p) => {
             }
         });
     }
-    else if (p.ClickID === 248) {
+    else if (p.ClickID === 209) {
         // Next track
         spotifyNext().then(() => {
             setTimeout(() => renderUI(MY_UCID, 'main', [], 2), 500);
