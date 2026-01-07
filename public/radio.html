@@ -561,28 +561,27 @@
                     spotifyState.nowPlaying = data;
                     renderNowPlaying();
 
-                    // Update LCD display with Spotify info (only update data, don't redraw if already showing same text)
+                    // Update LCD display with Spotify info
                     if (data.isPlaying) {
                         const newArtist = data.artist || 'Unknown Artist';
                         const newSong = data.track || 'Unknown Track';
                         const newStation = 'SPOTIFY';
 
-                        // Only trigger display update if content actually changed
+                        // Only update data and display if content actually changed
                         if (radioState.artist !== newArtist || radioState.song !== newSong || radioState.station !== newStation) {
                             radioState.artist = newArtist;
                             radioState.song = newSong;
                             radioState.station = newStation;
 
-                            // Start rotation if not already running
+                            // Only start rotation if not already running
+                            // If rotation is already running, it will pick up the new data automatically
                             if (radioState.isOn && !rotationTimer) {
                                 startRotationLogic();
-                            } else if (radioState.isOn) {
-                                updateDisplayByMode();
                             }
                         }
+                        // If content is the same, do nothing - let the rotation continue
                     } else if (!data.isPlaying && radioState.station === 'SPOTIFY') {
-                        // Spotify paused - optionally clear or keep showing last track
-                        // Keep showing for now
+                        // Spotify paused - keep showing last track info
                     }
                 } else {
                     spotifyState.nowPlaying = null;
