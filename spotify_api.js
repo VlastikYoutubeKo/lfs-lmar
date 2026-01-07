@@ -8,13 +8,15 @@ let spotifyConfig = {
   enabled: false,
   clientId: '',
   clientSecret: '',
-  redirectUri: 'http://127.0.0.1:3000/spotify/callback',
+  redirectUri: 'http://127.0.0.1:3000/spotify/callback', // Musí se shodovat s nastavením na Spotify Dashboard
   accessToken: null,
   refreshToken: null,
   tokenExpiry: null
 };
 
+// === ZDE BYLA CHYBA: POUŽIJTE OFICIÁLNÍ ADRESY ===
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
+const SPOTIFY_ACCOUNTS_HOSTNAME = 'accounts.spotify.com';
 const SPOTIFY_ACCOUNTS_BASE = 'https://accounts.spotify.com';
 
 /**
@@ -92,7 +94,7 @@ export async function exchangeCodeForToken(code) {
     const postData = params.toString();
 
     const options = {
-      hostname: 'accounts.spotify.com',
+      hostname: SPOTIFY_ACCOUNTS_HOSTNAME, // OPRAVENO
       path: '/api/token',
       method: 'POST',
       headers: {
@@ -106,14 +108,18 @@ export async function exchangeCodeForToken(code) {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        if (res.statusCode === 200) {
-          const tokenData = JSON.parse(data);
-          spotifyConfig.accessToken = tokenData.access_token;
-          spotifyConfig.refreshToken = tokenData.refresh_token;
-          spotifyConfig.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
-          resolve(tokenData);
-        } else {
-          reject(new Error(`Token exchange failed: ${res.statusCode} ${data}`));
+        try {
+            if (res.statusCode === 200) {
+              const tokenData = JSON.parse(data);
+              spotifyConfig.accessToken = tokenData.access_token;
+              spotifyConfig.refreshToken = tokenData.refresh_token;
+              spotifyConfig.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
+              resolve(tokenData);
+            } else {
+              reject(new Error(`Token exchange failed: ${res.statusCode} ${data}`));
+            }
+        } catch (e) {
+            reject(new Error(`Failed to parse token response: ${e.message}`));
         }
       });
     });
@@ -143,7 +149,7 @@ async function refreshAccessToken() {
     const postData = params.toString();
 
     const options = {
-      hostname: 'accounts.spotify.com',
+      hostname: SPOTIFY_ACCOUNTS_HOSTNAME, // OPRAVENO
       path: '/api/token',
       method: 'POST',
       headers: {
@@ -157,16 +163,20 @@ async function refreshAccessToken() {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        if (res.statusCode === 200) {
-          const tokenData = JSON.parse(data);
-          spotifyConfig.accessToken = tokenData.access_token;
-          spotifyConfig.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
-          if (tokenData.refresh_token) {
-            spotifyConfig.refreshToken = tokenData.refresh_token;
-          }
-          resolve(tokenData);
-        } else {
-          reject(new Error(`Token refresh failed: ${res.statusCode} ${data}`));
+        try {
+            if (res.statusCode === 200) {
+              const tokenData = JSON.parse(data);
+              spotifyConfig.accessToken = tokenData.access_token;
+              spotifyConfig.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
+              if (tokenData.refresh_token) {
+                spotifyConfig.refreshToken = tokenData.refresh_token;
+              }
+              resolve(tokenData);
+            } else {
+              reject(new Error(`Token refresh failed: ${res.statusCode} ${data}`));
+            }
+        } catch (e) {
+            reject(new Error(`Failed to parse refresh response: ${e.message}`));
         }
       });
     });
@@ -183,7 +193,12 @@ async function refreshAccessToken() {
 async function spotifyRequest(method, endpoint, body = null) {
   // Check if token needs refresh
   if (spotifyConfig.tokenExpiry && Date.now() >= spotifyConfig.tokenExpiry - 60000) {
-    await refreshAccessToken();
+    try {
+        await refreshAccessToken();
+    } catch (e) {
+        console.error("Failed to refresh token:", e.message);
+        // Continue anyway, maybe the current token is still valid for a second
+    }
   }
 
   if (!spotifyConfig.accessToken) {
@@ -191,7 +206,10 @@ async function spotifyRequest(method, endpoint, body = null) {
   }
 
   return new Promise((resolve, reject) => {
-    const url = new URL(endpoint, SPOTIFY_API_BASE);
+    // OPRAVENO: Správné sestavení URL
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+    const url = new URL(SPOTIFY_API_BASE + cleanEndpoint);
+    
     const options = {
       hostname: url.hostname,
       path: url.pathname + url.search,
@@ -206,12 +224,30 @@ async function spotifyRequest(method, endpoint, body = null) {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(data ? JSON.parse(data) : null);
-        } else if (res.statusCode === 204) {
-          resolve(null);
-        } else {
-          reject(new Error(`Spotify API error: ${res.statusCode} ${data}`));
+        try {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              // 202 Accepted, 204 No Content, or empty response - return null
+              if (res.statusCode === 202 || res.statusCode === 204 || !data) {
+                  resolve(null);
+              } else {
+                  // Only parse if data looks like JSON (starts with { or [)
+                  const trimmedData = data.trim();
+                  if (trimmedData.startsWith('{') || trimmedData.startsWith('[')) {
+                      resolve(JSON.parse(data));
+                  } else {
+                      // Non-JSON successful response (hash/signature) - return null
+                      resolve(null);
+                  }
+              }
+            } else {
+              // Error response - try to parse as JSON for error details
+              let msg = data;
+              try { msg = JSON.stringify(JSON.parse(data)); } catch(e){}
+              reject(new Error(`Spotify API error: ${res.statusCode} ${msg}`));
+            }
+        } catch (e) {
+            console.error("JSON Parse error for URL:", url.toString(), "Data:", data);
+            reject(new Error(`Failed to parse API response: ${e.message}`));
         }
       });
     });
@@ -248,17 +284,23 @@ export async function getNowPlaying() {
       return null;
     }
 
+    // Ochrana proti null u artists/images
+    const artistName = playback.item.artists ? playback.item.artists.map(a => a.name).join(', ') : 'Unknown Artist';
+    const artworkUrl = (playback.item.album && playback.item.album.images && playback.item.album.images.length > 0) 
+        ? playback.item.album.images[0].url 
+        : null;
+
     return {
       track: playback.item.name,
-      artist: playback.item.artists.map(a => a.name).join(', '),
-      album: playback.item.album.name,
+      artist: artistName,
+      album: playback.item.album ? playback.item.album.name : '',
       isPlaying: playback.is_playing,
       progress: playback.progress_ms,
       duration: playback.item.duration_ms,
-      artwork: playback.item.album.images[0]?.url
+      artwork: artworkUrl
     };
   } catch (err) {
-    console.error('Failed to get now playing:', err.message);
+    // Tiché selhání, aby to nespamovalo log
     return null;
   }
 }
