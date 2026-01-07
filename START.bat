@@ -60,13 +60,15 @@ echo.
 REM Check if Spotify setup is needed
 if not exist "radio_config.json" goto :ask_spotify
 
-REM Check if Spotify is already configured
+REM Check if Spotify is already configured (has clientId and it's not the placeholder)
 findstr /C:"\"clientId\"" radio_config.json >nul 2>nul
-if %ERRORLEVEL% EQU 0 (
-    findstr /C:"YOUR_SPOTIFY_CLIENT_ID_HERE" radio_config.json >nul 2>nul
-    if %ERRORLEVEL% NEQ 0 goto :skip_spotify_setup
-)
+if %ERRORLEVEL% NEQ 0 goto :ask_spotify
 
+REM Has clientId, now check if it's NOT the placeholder
+findstr /C:"YOUR_SPOTIFY_CLIENT_ID_HERE" radio_config.json >nul 2>nul
+if %ERRORLEVEL% NEQ 0 goto :skip_spotify_setup
+
+REM If we get here, clientId exists but it's still the placeholder
 :ask_spotify
 echo.
 echo ============================================================
