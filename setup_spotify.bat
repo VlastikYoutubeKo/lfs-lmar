@@ -77,21 +77,21 @@ if not exist "radio_config.json" (
     )
 )
 
-REM Create a temporary Node.js script to update the JSON
-echo const fs = require('fs'); > update_config_temp.js
-echo const config = JSON.parse(fs.readFileSync('radio_config.json', 'utf8')); >> update_config_temp.js
-echo if (!config.spotify) config.spotify = {}; >> update_config_temp.js
-echo config.spotify.enabled = true; >> update_config_temp.js
-echo config.spotify.clientId = process.argv[2]; >> update_config_temp.js
-echo config.spotify.clientSecret = process.argv[3]; >> update_config_temp.js
-echo config.spotify.accessToken = null; >> update_config_temp.js
-echo config.spotify.refreshToken = null; >> update_config_temp.js
-echo config.spotify.tokenExpiry = null; >> update_config_temp.js
-echo fs.writeFileSync('radio_config.json', JSON.stringify(config, null, 2)); >> update_config_temp.js
-echo console.log('[OK] Configuration updated successfully!'); >> update_config_temp.js
+REM Create a temporary Node.js script to update the JSON (using .cjs for CommonJS)
+echo const fs = require('fs'); > update_config_temp.cjs
+echo const config = JSON.parse(fs.readFileSync('radio_config.json', 'utf8')); >> update_config_temp.cjs
+echo if (!config.spotify) config.spotify = {}; >> update_config_temp.cjs
+echo config.spotify.enabled = true; >> update_config_temp.cjs
+echo config.spotify.clientId = process.argv[2]; >> update_config_temp.cjs
+echo config.spotify.clientSecret = process.argv[3]; >> update_config_temp.cjs
+echo config.spotify.accessToken = null; >> update_config_temp.cjs
+echo config.spotify.refreshToken = null; >> update_config_temp.cjs
+echo config.spotify.tokenExpiry = null; >> update_config_temp.cjs
+echo fs.writeFileSync('radio_config.json', JSON.stringify(config, null, 2)); >> update_config_temp.cjs
+echo console.log('[OK] Configuration updated successfully!'); >> update_config_temp.cjs
 
-node update_config_temp.js "!CLIENT_ID!" "!CLIENT_SECRET!"
-del update_config_temp.js
+node update_config_temp.cjs "!CLIENT_ID!" "!CLIENT_SECRET!"
+del update_config_temp.cjs
 
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Failed to update configuration!
