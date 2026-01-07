@@ -340,10 +340,10 @@
 
         <div class="section-right">
             <div class="label-text" style="align-self: flex-end; margin-right: 10px; margin-bottom: 5px;">DSX-M80</div>
-            <button class="seek-btn">⏭</button>
+            <button class="seek-btn" onclick="seekNext()">⏭</button>
             <div class="usb-cover"><span>ψ</span></div>
-            <button class="seek-btn">⏮</button>
-            <div class="label-text pos-dspl">DSPL<br>SCRL</div>
+            <button class="seek-btn" onclick="seekPrevious()">⏮</button>
+            <div class="label-text pos-dspl" onclick="cycleDisplayMode()" style="cursor: pointer;">DSPL<br>SCRL</div>
         </div>
     </div>
 
@@ -550,12 +550,19 @@
                     spotifyState.nowPlaying = data;
                     renderNowPlaying();
 
-                    // Update LCD display with Spotify info
+                    // Update LCD display with Spotify info (only update data, don't redraw if already showing same text)
                     if (data.isPlaying && radioState.isOn) {
-                        radioState.artist = data.artist || 'Unknown Artist';
-                        radioState.song = data.track || 'Unknown Track';
-                        radioState.station = 'SPOTIFY';
-                        updateDisplayByMode();
+                        const newArtist = data.artist || 'Unknown Artist';
+                        const newSong = data.track || 'Unknown Track';
+                        const newStation = 'SPOTIFY';
+
+                        // Only trigger display update if content actually changed
+                        if (radioState.artist !== newArtist || radioState.song !== newSong || radioState.station !== newStation) {
+                            radioState.artist = newArtist;
+                            radioState.song = newSong;
+                            radioState.station = newStation;
+                            updateDisplayByMode();
+                        }
                     }
                 } else {
                     spotifyState.nowPlaying = null;
@@ -620,6 +627,30 @@
         function stopRotationLogic() {
             if (rotationTimer) clearInterval(rotationTimer);
             if (scrollTimer) clearInterval(scrollTimer);
+        }
+
+        // --- SEEK BUTTONS ---
+        function seekNext() {
+            // If Spotify is playing, skip to next track
+            if (spotifyState.enabled && spotifyState.hasAuth && spotifyState.nowPlaying?.isPlaying) {
+                spotifyNext();
+            }
+            // Could add radio station skip here if implemented
+        }
+
+        function seekPrevious() {
+            // If Spotify is playing, skip to previous track
+            if (spotifyState.enabled && spotifyState.hasAuth && spotifyState.nowPlaying?.isPlaying) {
+                spotifyPrevious();
+            }
+            // Could add radio station skip here if implemented
+        }
+
+        // --- DISPLAY MODE CYCLING ---
+        function cycleDisplayMode() {
+            if (!radioState.isOn) return;
+            displayMode = (displayMode + 1) % 3;
+            updateDisplayByMode();
         }
 
         function updateDisplayByMode() {

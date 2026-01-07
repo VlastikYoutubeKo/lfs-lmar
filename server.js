@@ -374,7 +374,10 @@ const OVERLAY_HEADER = 191;
 const OVERLAY_ARTIST = 192;
 const OVERLAY_SONG = 193;
 const OVERLAY_PROGRAM = 194;
-const OVERLAY_CLOSE = 195; 
+const OVERLAY_CLOSE = 195;
+const OVERLAY_SPOTIFY_PREV = 196;
+const OVERLAY_SPOTIFY_PLAY = 197;
+const OVERLAY_SPOTIFY_NEXT = 198; 
 
 // === STATE ===
 const playerStates = new Map(); 
@@ -407,6 +410,8 @@ let overlayArtistParts = [];
 let overlaySongParts = [];
 let spotifyPollingInterval = null;
 let lastSpotifyTrackId = null;
+let isSpotifySource = false;
+let currentSpotifyPlaybackState = null;
 
 let radioConfig = {
   favorites: [],
@@ -1126,17 +1131,57 @@ function createTickerParts(text, maxLength) {
 function showNowPlayingOverlay(nowPlaying) {
     isOverlayVisible = true;
     const isLocal = currentStationConfig?.provider === 'local' || currentStationConfig?.provider === 'playlist';
-    
+
     const W = 40; const L = 90; const T = 160;
-    const totalHeight = isLocal ? 12 : (currentProgram ? 20 : 14);
-    
+    const totalHeight = isLocal ? 12 : (isSpotifySource ? 18 : (currentProgram ? 20 : 14));
+
     sendBtn(MY_UCID, OVERLAY_BG, L, T, W, totalHeight, '', ButtonStyle.ISB_DARK);
-    
+
     let artist = stripColors(nowPlaying.artist || "");
     let song = stripColors(nowPlaying.song || nowPlaying.fullTitle || "");
     let fullTitle = artist && song ? `${artist} - ${song}` : (song || artist);
-    
-    if (isLocal) {
+
+    if (isSpotifySource) {
+        // SPOTIFY LAYOUT with playback controls
+        sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2🎵 ^5SPOTIFY', ButtonStyle.ISB_DARK);
+        sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+
+        // Artist and song info
+        overlayArtistParts = createTickerParts(artist, 30);
+        overlaySongParts = createTickerParts(song, 30);
+
+        if (overlayTickerTimer) {
+            clearInterval(overlayTickerTimer);
+            overlayTickerTimer = null;
+        }
+        overlayTickerIndex = 0;
+
+        const artistPart = overlayArtistParts[0] || artist;
+        const songPart = overlaySongParts[0] || song;
+
+        sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, W, 4, `^2${artistPart}`, ButtonStyle.ISB_DARK);
+        sendBtn(MY_UCID, OVERLAY_SONG, L, T+9, W, 4, `^7${songPart}`, ButtonStyle.ISB_DARK);
+
+        // Ticker for long text
+        const maxParts = Math.max(overlayArtistParts.length, overlaySongParts.length);
+        if (maxParts > 1) {
+            overlayTickerTimer = setInterval(() => {
+                overlayTickerIndex++;
+                if (overlayTickerIndex >= maxParts) overlayTickerIndex = 0;
+                const ap = overlayArtistParts[overlayTickerIndex % overlayArtistParts.length] || "";
+                const sp = overlaySongParts[overlayTickerIndex % overlaySongParts.length] || "";
+                sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, W, 4, `^2${ap}`, ButtonStyle.ISB_DARK);
+                sendBtn(MY_UCID, OVERLAY_SONG, L, T+9, W, 4, `^7${sp}`, ButtonStyle.ISB_DARK);
+            }, 3000);
+        }
+
+        // PLAYBACK CONTROLS
+        sendBtn(MY_UCID, OVERLAY_SPOTIFY_PREV, L+1, T+13, 12, 4, '^3|<< PREV', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+        const playBtnText = currentSpotifyPlaybackState?.isPlaying ? '^3|| PAUSE' : '^2▶ PLAY';
+        sendBtn(MY_UCID, OVERLAY_SPOTIFY_PLAY, L+14, T+13, 12, 4, playBtnText, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+        sendBtn(MY_UCID, OVERLAY_SPOTIFY_NEXT, L+27, T+13, 12, 4, '^3NEXT >>|', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+    }
+    else if (isLocal) {
         // LOCAL MUSIC / PLAYLIST LAYOUT
         
         // Pro playlist: zobraz název playlistu + název skladby
@@ -1219,7 +1264,7 @@ function showNowPlayingOverlay(nowPlaying) {
 function clearNowPlayingOverlay() {
     isOverlayVisible = false;
     if (overlayTickerTimer) { clearInterval(overlayTickerTimer); overlayTickerTimer = null; }
-    for (let i = OVERLAY_BG; i <= OVERLAY_CLOSE; i++) {
+    for (let i = OVERLAY_BG; i <= OVERLAY_SPOTIFY_NEXT; i++) {
         inSim.send(new IS_BFN({ReqI: 1, SubT: 1, UCID: MY_UCID, ClickID: i}));
     }
 }
@@ -1239,6 +1284,8 @@ async function checkSpotifyNowPlaying() {
             // Only update if track changed or radio is not playing
             if (trackId !== lastSpotifyTrackId || !currentStation) {
                 lastSpotifyTrackId = trackId;
+                isSpotifySource = true;
+                currentSpotifyPlaybackState = np;
 
                 // Update now playing info
                 const nowPlaying = {
@@ -1265,6 +1312,8 @@ async function checkSpotifyNowPlaying() {
             // Spotify stopped/paused - clear if we were showing Spotify
             if (lastSpotifyTrackId && !currentStation) {
                 lastSpotifyTrackId = null;
+                isSpotifySource = false;
+                currentSpotifyPlaybackState = null;
                 if (isInSimConnected && isOverlayVisible) {
                     clearNowPlayingOverlay();
                 }
@@ -1777,6 +1826,31 @@ inSim.on(PacketType.ISP_BTC, async (p) => {
         }
     }
     else if (p.ClickID === OVERLAY_CLOSE) clearNowPlayingOverlay();
+
+    // Spotify overlay controls
+    else if (p.ClickID === OVERLAY_SPOTIFY_PREV) {
+        spotifyPrevious().then(() => {
+            setTimeout(() => checkSpotifyNowPlaying(), 500);
+        });
+    }
+    else if (p.ClickID === OVERLAY_SPOTIFY_PLAY) {
+        getNowPlaying().then(np => {
+            if (np && np.isPlaying) {
+                spotifyPause().then(() => {
+                    setTimeout(() => checkSpotifyNowPlaying(), 300);
+                });
+            } else {
+                spotifyPlay().then(() => {
+                    setTimeout(() => checkSpotifyNowPlaying(), 300);
+                });
+            }
+        });
+    }
+    else if (p.ClickID === OVERLAY_SPOTIFY_NEXT) {
+        spotifyNext().then(() => {
+            setTimeout(() => checkSpotifyNowPlaying(), 500);
+        });
+    }
 
     // Spotify controls (IDs 202-209, 219)
     else if (p.ClickID === 204) {
