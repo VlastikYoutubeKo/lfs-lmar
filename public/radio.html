@@ -144,6 +144,161 @@
         .label-text { font-size: 9px; color: #777; text-transform: uppercase; }
         .pos-src { position: absolute; top: 30px; left: 15px; }
         .pos-dspl { position: absolute; bottom: 20px; right: 20px; text-align: right;}
+
+        /* === SPOTIFY CONTROLS === */
+        .spotify-panel {
+            width: 800px;
+            margin-top: 30px;
+            background: linear-gradient(to bottom, #1a1a1a, #0a0a0a);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 0 4px #000, 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        .spotify-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #1DB954;
+        }
+
+        .spotify-logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1DB954;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .spotify-toggle {
+            background: #1DB954;
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .spotify-toggle:hover {
+            background: #1ed760;
+            transform: scale(1.05);
+        }
+
+        .spotify-toggle.disabled {
+            background: #666;
+            color: #ccc;
+        }
+
+        .spotify-content {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .spotify-artwork {
+            width: 150px;
+            height: 150px;
+            background: #222;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .spotify-artwork img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .spotify-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .spotify-track {
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .spotify-artist {
+            font-size: 16px;
+            color: #b3b3b3;
+        }
+
+        .spotify-album {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .spotify-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .spotify-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #333;
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .spotify-btn:hover {
+            background: #1DB954;
+            transform: scale(1.1);
+        }
+
+        .spotify-btn.play {
+            width: 60px;
+            height: 60px;
+            background: #1DB954;
+            font-size: 24px;
+        }
+
+        .spotify-btn.play:hover {
+            background: #1ed760;
+        }
+
+        .spotify-status {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .spotify-connect-btn {
+            background: #1DB954;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 16px;
+        }
+
+        .spotify-connect-btn:hover {
+            background: #1ed760;
+        }
     </style>
 </head>
 <body>
@@ -192,6 +347,21 @@
         </div>
     </div>
 
+    <!-- Spotify Controls Panel -->
+    <div class="spotify-panel" id="spotifyPanel">
+        <div class="spotify-header">
+            <div class="spotify-logo">
+                <span>♫</span>
+                <span>SPOTIFY</span>
+            </div>
+            <button class="spotify-toggle" id="spotifyToggle" onclick="toggleSpotify()">
+                Enable
+            </button>
+        </div>
+
+        <div id="spotifyContent"></div>
+    </div>
+
     <script>
         const DISPLAY_SLOTS = 10;
         let ws = null;
@@ -209,9 +379,182 @@
         let rotationTimer = null;
         let scrollTimer = null;
 
+        // === SPOTIFY STATE ===
+        let spotifyState = {
+            enabled: false,
+            hasAuth: false,
+            nowPlaying: null,
+            pollInterval: null
+        };
+
         function init() {
             displayOnLCD("READING...", false);
             connectWebSocket();
+            loadSpotifyConfig();
+        }
+
+        // === SPOTIFY FUNCTIONS ===
+        async function loadSpotifyConfig() {
+            try {
+                const res = await fetch('/api/spotify/config');
+                const config = await res.json();
+                spotifyState.enabled = config.enabled;
+                spotifyState.hasAuth = config.hasAuth;
+                updateSpotifyUI();
+
+                if (config.enabled && config.hasAuth) {
+                    startSpotifyPolling();
+                }
+            } catch (err) {
+                console.error('Failed to load Spotify config:', err);
+            }
+        }
+
+        function updateSpotifyUI() {
+            const toggle = document.getElementById('spotifyToggle');
+            const content = document.getElementById('spotifyContent');
+
+            if (!spotifyState.enabled) {
+                toggle.textContent = 'Enable';
+                toggle.classList.remove('disabled');
+                content.innerHTML = '<div class="spotify-status">Spotify integration is disabled</div>';
+            } else if (!spotifyState.hasAuth) {
+                toggle.textContent = 'Disable';
+                toggle.classList.add('disabled');
+                content.innerHTML = `
+                    <div class="spotify-status">
+                        <div>Not connected to Spotify</div>
+                        <button class="spotify-connect-btn" onclick="connectSpotify()">
+                            Connect to Spotify
+                        </button>
+                    </div>
+                `;
+            } else {
+                toggle.textContent = 'Disable';
+                toggle.classList.add('disabled');
+                renderNowPlaying();
+            }
+        }
+
+        function renderNowPlaying() {
+            const content = document.getElementById('spotifyContent');
+
+            if (!spotifyState.nowPlaying || !spotifyState.nowPlaying.track) {
+                content.innerHTML = `
+                    <div class="spotify-status">
+                        No active device. Start playing on Spotify app.
+                    </div>
+                `;
+                return;
+            }
+
+            const np = spotifyState.nowPlaying;
+            const playIcon = np.isPlaying ? '⏸' : '▶';
+
+            content.innerHTML = `
+                <div class="spotify-content">
+                    <div class="spotify-artwork">
+                        ${np.artwork ? `<img src="${np.artwork}" alt="Album art">` : ''}
+                    </div>
+                    <div class="spotify-info">
+                        <div class="spotify-track">${np.track}</div>
+                        <div class="spotify-artist">${np.artist}</div>
+                        <div class="spotify-album">${np.album}</div>
+                        <div class="spotify-controls">
+                            <button class="spotify-btn" onclick="spotifyPrevious()">⏮</button>
+                            <button class="spotify-btn play" onclick="spotifyPlayPause()">${playIcon}</button>
+                            <button class="spotify-btn" onclick="spotifyNext()">⏭</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function toggleSpotify() {
+            const newState = !spotifyState.enabled;
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'spotify_toggle', enabled: newState }));
+            }
+
+            spotifyState.enabled = newState;
+
+            if (newState && spotifyState.hasAuth) {
+                startSpotifyPolling();
+            } else {
+                stopSpotifyPolling();
+            }
+
+            updateSpotifyUI();
+        }
+
+        function connectSpotify() {
+            window.open('/spotify/auth', '_blank', 'width=600,height=700');
+
+            // Poll for auth completion
+            const checkInterval = setInterval(() => {
+                loadSpotifyConfig().then(() => {
+                    if (spotifyState.hasAuth) {
+                        clearInterval(checkInterval);
+                    }
+                });
+            }, 2000);
+
+            // Stop checking after 2 minutes
+            setTimeout(() => clearInterval(checkInterval), 120000);
+        }
+
+        function spotifyPlayPause() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+            const command = spotifyState.nowPlaying?.isPlaying ? 'spotify_pause' : 'spotify_play';
+            ws.send(JSON.stringify({ type: command }));
+
+            setTimeout(updateNowPlaying, 500);
+        }
+
+        function spotifyNext() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ type: 'spotify_next' }));
+            setTimeout(updateNowPlaying, 1000);
+        }
+
+        function spotifyPrevious() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ type: 'spotify_previous' }));
+            setTimeout(updateNowPlaying, 1000);
+        }
+
+        async function updateNowPlaying() {
+            if (!spotifyState.enabled || !spotifyState.hasAuth) return;
+
+            try {
+                const res = await fetch('/api/spotify/now-playing');
+                const data = await res.json();
+
+                if (data && data.track) {
+                    spotifyState.nowPlaying = data;
+                    renderNowPlaying();
+                } else {
+                    spotifyState.nowPlaying = null;
+                    renderNowPlaying();
+                }
+            } catch (err) {
+                console.error('Failed to fetch now playing:', err);
+            }
+        }
+
+        function startSpotifyPolling() {
+            stopSpotifyPolling();
+            updateNowPlaying();
+            spotifyState.pollInterval = setInterval(updateNowPlaying, 3000);
+        }
+
+        function stopSpotifyPolling() {
+            if (spotifyState.pollInterval) {
+                clearInterval(spotifyState.pollInterval);
+                spotifyState.pollInterval = null;
+            }
         }
 
         // --- POWER LOGIC ---
