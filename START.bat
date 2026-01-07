@@ -97,7 +97,7 @@ echo ============================================================
 echo [INFO] Starting server...
 echo [INFO] Press Ctrl+C to stop
 echo.
-echo [WEB] After starting, open: http://localhost:3000
+echo [WEB] After starting, open: http://127.0.0.1:3000
 echo [LFS] In LFS, type: /insim 29999
 echo ============================================================
 echo.
