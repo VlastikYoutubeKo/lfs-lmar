@@ -8,7 +8,7 @@ let spotifyConfig = {
   enabled: false,
   clientId: '',
   clientSecret: '',
-  redirectUri: 'http://localhost:3000/spotify/callback',
+  redirectUri: 'http://127.0.0.1:3000/spotify/callback',
   accessToken: null,
   refreshToken: null,
   tokenExpiry: null

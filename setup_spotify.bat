@@ -26,7 +26,7 @@ echo 3. Click "Create app"
 echo 4. Fill in:
 echo    - App name: LFS Radio (or any name)
 echo    - App description: Live For Speed radio integration
-echo    - Redirect URI: http://localhost:3000/spotify/callback
+echo    - Redirect URI: http://127.0.0.1:3000/spotify/callback
 echo    - Select "Web API"
 echo 5. Check Terms of Service and click "Save"
 echo 6. Click "Settings" to view your credentials

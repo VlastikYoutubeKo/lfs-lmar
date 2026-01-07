@@ -27,7 +27,7 @@ tracks, adjust volume, and see what's currently playing.
 4. Fill in the app details:
    - App name: "LFS Radio" (or any name you like)
    - App description: "Live For Speed radio integration"
-   - Redirect URI: http://localhost:3000/spotify/callback
+   - Redirect URI: http://127.0.0.1:3000/spotify/callback
    - Which API/SDKs are you planning to use: Select "Web API"
 
 5. Check the Terms of Service agreement box
@@ -118,7 +118,7 @@ tracks, adjust volume, and see what's currently playing.
 Q: I get "Authentication Failed" when trying to connect
 A: Make sure your Client ID and Client Secret are correct in radio_config.json
    Also ensure the Redirect URI in your Spotify app settings is exactly:
-   http://localhost:3000/spotify/callback
+   http://127.0.0.1:3000/spotify/callback
 
 Q: Spotify controls don't work
 A: You need a Spotify Premium account. The Free tier doesn't support
