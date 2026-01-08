@@ -1693,28 +1693,15 @@ inSim.on(PacketType.ISP_MSO, (p) => {
     if (p.UserType === UserType.MSO_O) {
         const msg = p.Msg; 
         if (msg === 'gui') {
-            // Handle UCID transfer if needed
-            if (MY_UCID === 255 || MY_UCID !== p.UCID) {
-                const oldState = playerStates.get(MY_UCID);
-                if (oldState) {
-                    playerStates.set(p.UCID, oldState);
-                    playerStates.delete(MY_UCID);
-                }
-                clearGuiButtons(MY_UCID); // Clear old UCID buttons
+            // Handle UCID transfer if connecting from UCID 255
+            if (MY_UCID === 255) {
                 MY_UCID = p.UCID;
             }
 
-            // Clear buttons on current UCID and render main UI
+            // Clear all buttons and reset to main screen
             clearGuiButtons(MY_UCID);
-
-            const state = playerStates.get(MY_UCID);
-            if (!state) {
-                 playerStates.set(MY_UCID, { state: 'main', searchResults: [], page: 0 });
-            } else {
-                 state.state = 'main';
-            }
-
-            renderUI(MY_UCID, 'main', state?.searchResults || [], state?.page || 0);
+            playerStates.set(MY_UCID, { state: 'main', searchResults: [], page: 0 });
+            renderUI(MY_UCID, 'main', [], 0);
         }
         else if (msg === 'np') {
             if (currentStation) showNowPlayingOverlay(lastNowPlayingInfo);
@@ -1738,7 +1725,13 @@ inSim.on(PacketType.ISP_BTC, async (p) => {
     }
 
     if (p.UCID !== MY_UCID) return;
-    const state = playerStates.get(MY_UCID);
+
+    let state = playerStates.get(MY_UCID);
+    if (!state) {
+        // State missing - reinitialize
+        state = { state: 'main', searchResults: [], page: 0 };
+        playerStates.set(MY_UCID, state);
+    }
 
     if (p.ClickID === 239) renderUI(MY_UCID, 'main');
     else if (p.ClickID === 215) renderUI(MY_UCID, 'icon');
