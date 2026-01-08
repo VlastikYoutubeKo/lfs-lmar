@@ -3,7 +3,7 @@
 
 import { InSim } from 'node-insim';
 import { WebSocketServer } from 'ws';
-import { PacketType, InSimFlags, ButtonStyle, IS_BTN, IS_BFN, IS_TINY, IS_MSO, TinyType, UserType, IS_ISI_ReqI } from 'node-insim/packets';
+import { PacketType, InSimFlags, ButtonStyle, IS_BTN, IS_BFN, IS_TINY, IS_MSO, IS_MTC, TinyType, UserType, IS_ISI_ReqI } from 'node-insim/packets';
 import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -813,7 +813,7 @@ function startGuiWatchdog() {
 
             if (isSpotifySource) {
                 // SPOTIFY OVERLAY
-                sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2🎵 ^5SPOTIFY', ButtonStyle.ISB_DARK);
+                sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2ô ^5SPOTIFY', ButtonStyle.ISB_DARK);
 
                 // Refresh artist/song with ticker
                 if (overlayArtistParts.length > 0 && overlaySongParts.length > 0) {
@@ -1164,7 +1164,7 @@ function showNowPlayingOverlay(nowPlaying) {
 
     if (isSpotifySource) {
         // SPOTIFY LAYOUT with playback controls
-        sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2🎵 ^5SPOTIFY', ButtonStyle.ISB_DARK);
+        sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2ô ^5SPOTIFY', ButtonStyle.ISB_DARK);
         sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
 
         // Artist and song info
