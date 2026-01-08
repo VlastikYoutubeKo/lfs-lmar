@@ -1689,9 +1689,33 @@ inSim.on(PacketType.ISP_MCI, (p) => {
   wssMap.clients.forEach(client => { if (client.readyState === 1) client.send(JSON.stringify({ type: 'positions', cars: mapData })); });
 });
 
+// Handle button requests (SHIFT+B / /o gui / user clearing buttons)
+inSim.on(PacketType.ISP_BFN, (p) => {
+    // BFN_REQUEST (3) = user pressed SHIFT+B asking for buttons to be redrawn
+    // BFN_USER_CLEAR (2) = user cleared buttons
+    if (p.SubT === 3 || p.SubT === 2) {
+        if (ENABLE_DEBUG) console.log(`${colors.yellow}[BFN]${colors.reset} Button request received (SubT=${p.SubT}), redrawing UI`);
+
+        const state = playerStates.get(MY_UCID);
+        if (state) {
+            // Redraw current UI state
+            renderUI(MY_UCID, state.state, state.searchResults, state.page);
+        } else {
+            // No state - render icon button
+            playerStates.set(MY_UCID, { state: 'icon', searchResults: [], page: 0 });
+            renderUI(MY_UCID, 'icon');
+        }
+
+        // Redraw overlay if visible
+        if (isOverlayVisible && (currentStation || isSpotifySource)) {
+            showNowPlayingOverlay(lastNowPlayingInfo);
+        }
+    }
+});
+
 inSim.on(PacketType.ISP_MSO, (p) => {
     if (p.UserType === UserType.MSO_O) {
-        const msg = p.Msg; 
+        const msg = p.Msg;
         if (msg === 'gui') {
             // Handle UCID transfer if connecting from UCID 255
             if (MY_UCID === 255) {
