@@ -3,7 +3,7 @@
 
 import { InSim } from 'node-insim';
 import { WebSocketServer } from 'ws';
-import { PacketType, InSimFlags, ButtonStyle, IS_BTN, IS_BFN, IS_TINY, IS_MSO, IS_MTC, TinyType, UserType, IS_ISI_ReqI } from 'node-insim/packets';
+import { PacketType, InSimFlags, ButtonStyle, IS_BTN, IS_BFN, IS_TINY, IS_MSO, TinyType, UserType, IS_ISI_ReqI } from 'node-insim/packets';
 import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -1693,27 +1693,28 @@ inSim.on(PacketType.ISP_MSO, (p) => {
     if (p.UserType === UserType.MSO_O) {
         const msg = p.Msg; 
         if (msg === 'gui') {
+            // Handle UCID transfer if needed
             if (MY_UCID === 255 || MY_UCID !== p.UCID) {
                 const oldState = playerStates.get(MY_UCID);
                 if (oldState) {
                     playerStates.set(p.UCID, oldState);
                     playerStates.delete(MY_UCID);
-                    clearGuiButtons(MY_UCID);
                 }
+                clearGuiButtons(MY_UCID); // Clear old UCID buttons
                 MY_UCID = p.UCID;
             }
-            // Clear any existing buttons first
+
+            // Clear buttons on current UCID and render main UI
             clearGuiButtons(MY_UCID);
 
             const state = playerStates.get(MY_UCID);
             if (!state) {
                  playerStates.set(MY_UCID, { state: 'main', searchResults: [], page: 0 });
-                 renderUI(MY_UCID, 'main');
             } else {
                  state.state = 'main';
-                 renderUI(MY_UCID, 'main', state.searchResults, state.page);
             }
-            inSim.send(new IS_MTC({ Text: `${t('MSG_GUI_RESET')}` }));
+
+            renderUI(MY_UCID, 'main', state?.searchResults || [], state?.page || 0);
         }
         else if (msg === 'np') {
             if (currentStation) showNowPlayingOverlay(lastNowPlayingInfo);
