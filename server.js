@@ -129,6 +129,7 @@ const SPECIAL_CHARS_MAP = {
   '●': { char: '●', codepoint: 0x25CF, codepage: 'J', name: 'BLACK CIRCLE' },
   '★': { char: '★', codepoint: 0x2605, codepage: 'J', name: 'BLACK STAR' },
   '☆': { char: '☆', codepoint: 0x2606, codepage: 'J', name: 'WHITE STAR' },
+  '♪': { char: '♪', codepoint: 0x266A, codepage: 'J', name: 'EIGHTH NOTE' },
   '›': { char: '›', codepoint: 0x203A, codepage: 'L', name: 'SINGLE RIGHT ANGLE QUOTATION' },
   '‹': { char: '‹', codepoint: 0x2039, codepage: 'L', name: 'SINGLE LEFT ANGLE QUOTATION' }
 };
@@ -813,7 +814,7 @@ function startGuiWatchdog() {
 
             if (isSpotifySource) {
                 // SPOTIFY OVERLAY
-                sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2ô ^5SPOTIFY', ButtonStyle.ISB_DARK);
+                sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2^J♪ ^5SPOTIFY', ButtonStyle.ISB_DARK);
 
                 // Refresh artist/song with ticker
                 if (overlayArtistParts.length > 0 && overlaySongParts.length > 0) {
@@ -1164,7 +1165,7 @@ function showNowPlayingOverlay(nowPlaying) {
 
     if (isSpotifySource) {
         // SPOTIFY LAYOUT with playback controls
-        sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2ô ^5SPOTIFY', ButtonStyle.ISB_DARK);
+        sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2^J♪ ^5SPOTIFY', ButtonStyle.ISB_DARK);
         sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
 
         // Artist and song info
