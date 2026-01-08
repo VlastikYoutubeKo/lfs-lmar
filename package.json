@@ -1,6 +1,6 @@
 {
   "name": "lfs-live-map-radio",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Live For Speed InSim aplikace s real-time mapou a funkčním rádiem",
   "main": "server.js",
   "type": "module",
