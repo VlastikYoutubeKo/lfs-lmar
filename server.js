@@ -791,7 +791,10 @@ function startGuiWatchdog() {
             // Watchdog má jen refresh overlay a update status buttons
             if (state.state === 'main') {
                 updateStatusButtons();
-            } else if (state.state !== 'icon') {
+            } else if (state.state === 'icon') {
+                // Refresh icon button to keep it alive
+                sendBtn(MY_UCID, 239, UI_LEFT + 24, ICON_TOP, 5, 5, '^5[ ^7R ^5]', ButtonStyle.ISB_DARK | ButtonStyle.ISB_CLICK);
+            } else {
                 renderUI(MY_UCID, state.state, state.searchResults, state.page);
             }
         } else if (MY_UCID === 255) {
@@ -800,36 +803,54 @@ function startGuiWatchdog() {
         }
         
         // Refresh Overlay (keep buttons alive)
-        if (isOverlayVisible && currentStation) {
+        if (isOverlayVisible) {
             const isLocal = currentStationConfig?.provider === 'local' || currentStationConfig?.provider === 'playlist';
             const L = 90; const T = 160; const W = 40;
-            const totalHeight = isLocal ? 12 : (currentProgram ? 20 : 14);
-            
+            const totalHeight = isLocal ? 12 : (isSpotifySource ? 18 : (currentProgram ? 20 : 14));
+
             sendBtn(MY_UCID, OVERLAY_BG, L, T, W, totalHeight, '', ButtonStyle.ISB_DARK);
             sendBtn(MY_UCID, OVERLAY_CLOSE, L + W - 6, T+1, 5, 4, '^1X', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
-            
-            if (isLocal) {
-                // Header s názvem (ticker se obnovuje automaticky)
+
+            if (isSpotifySource) {
+                // SPOTIFY OVERLAY
+                sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, '^2🎵 ^5SPOTIFY', ButtonStyle.ISB_DARK);
+
+                // Refresh artist/song with ticker
+                if (overlayArtistParts.length > 0 && overlaySongParts.length > 0) {
+                    const ap = overlayArtistParts[overlayTickerIndex % overlayArtistParts.length] || "";
+                    const sp = overlaySongParts[overlayTickerIndex % overlaySongParts.length] || "";
+                    sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, W, 4, `^2${ap}`, ButtonStyle.ISB_DARK);
+                    sendBtn(MY_UCID, OVERLAY_SONG, L, T+9, W, 4, `^7${sp}`, ButtonStyle.ISB_DARK);
+                }
+
+                // Spotify controls
+                sendBtn(MY_UCID, OVERLAY_SPOTIFY_PREV, L+1, T+13, 12, 4, '^3|<< PREV', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+                const playBtnText = currentSpotifyPlaybackState?.isPlaying ? '^3|| PAUSE' : '^2▶ PLAY';
+                sendBtn(MY_UCID, OVERLAY_SPOTIFY_PLAY, L+14, T+13, 12, 4, playBtnText, ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+                sendBtn(MY_UCID, OVERLAY_SPOTIFY_NEXT, L+27, T+13, 12, 4, '^3NEXT >>|', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
+            }
+            else if (isLocal) {
+                // LOCAL MUSIC OVERLAY
                 if (overlayArtistParts.length > 0) {
                     const titlePart = overlayArtistParts[overlayTickerIndex % overlayArtistParts.length];
                     sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, `^2${titlePart}`, ButtonStyle.ISB_DARK);
                 }
-                
-                // Track info - ukaž původní číslo i když je shuffle
+
                 const displayIndex = getCurrentTrackOriginalIndex();
                 const trackInfo = `^7${displayIndex}^8/^7${originalPlaylist.length || currentPlaylist.length}`;
                 sendBtn(MY_UCID, OVERLAY_ARTIST, L, T+5, W, 3, trackInfo, ButtonStyle.ISB_DARK);
-                
+
                 // Controls
                 sendBtn(MY_UCID, 227, L+1, T+8, 8, 4, '^3|<', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
                 sendBtn(MY_UCID, 226, L+10, T+8, 10, 4, isPaused ? '^2▶' : '^3||', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
                 sendBtn(MY_UCID, 228, L+21, T+8, 8, 4, '^3>|', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
                 sendBtn(MY_UCID, 229, L+30, T+8, 9, 4, isShuffled ? '^2🔀' : '^8🔀', ButtonStyle.ISB_LIGHT | ButtonStyle.ISB_CLICK);
             }
-            else {
+            else if (currentStation) {
+                // REGULAR STREAM OVERLAY
                 sendBtn(MY_UCID, OVERLAY_HEADER, L, T+1, W-6, 4, t('OVERLAY_HEADER'), ButtonStyle.ISB_DARK);
                 updateOverlayText();
-                
+
                 if (currentProgram) {
                     let prog = currentProgram.name.substring(0, 40);
                     sendBtn(MY_UCID, OVERLAY_PROGRAM, L, T+14, W, 5, `${t('OVERLAY_PROGRAM')}^7${prog}`, ButtonStyle.ISB_DARK);
@@ -1680,6 +1701,9 @@ inSim.on(PacketType.ISP_MSO, (p) => {
                 }
                 MY_UCID = p.UCID;
             }
+            // Clear any existing buttons first
+            clearGuiButtons(MY_UCID);
+
             const state = playerStates.get(MY_UCID);
             if (!state) {
                  playerStates.set(MY_UCID, { state: 'main', searchResults: [], page: 0 });
@@ -1688,6 +1712,7 @@ inSim.on(PacketType.ISP_MSO, (p) => {
                  state.state = 'main';
                  renderUI(MY_UCID, 'main', state.searchResults, state.page);
             }
+            inSim.send(new IS_MTC({ Text: `${t('MSG_GUI_RESET')}` }));
         }
         else if (msg === 'np') {
             if (currentStation) showNowPlayingOverlay(lastNowPlayingInfo);
